@@ -1,0 +1,59 @@
+# Project-specific resolved skill bundle for HengFatt Property.
+# Points into the central repo (see AGENTS.md for the path). This is a
+# hand-composed union of the closest-matching global bundles, trimmed to
+# what's actually relevant to this project's real stack — not every skill
+# in the source bundles applies here (e.g. no billing/Stripe, no
+# multi-tenancy beyond RLS-scoped tenant isolation via agent_id).
+#
+# Source bundles referenced: web-saas-builder.yaml, ai-saas-builder.yaml,
+# supabase-stack.yaml, n8n-automation.yaml (all in 00_MASTER/bundles/).
+
+name: hengfatt-property
+version: 1.0.0
+extends: []  # hand-composed, not built via build_bundles.py
+
+skills:
+  frontend:
+    - 01_SKILLS/frontend/frontend-design              # audited 83, GOOD
+    - 01_SKILLS/frontend/webapp-testing                # audited 88, GOOD -- Golden
+    - 01_SKILLS/frontend/vercel-react-best-practices    # audited 75, NEEDS IMPROVEMENT -- general React advice, not Vercel-hosting-specific parts
+  database:
+    - 01_SKILLS/database/supabase                        # official Supabase skill, trust_level high -- load before any migration/RLS/Edge Function work
+    - 01_SKILLS/database/supabase-postgres-best-practices  # official, trust_level high -- indexing/locking/pagination
+  authentication:
+    - 01_SKILLS/authentication/oauth-implementation       # audited 77, NEEDS IMPROVEMENT -- this project uses Supabase Auth directly, not third-party OAuth; use mainly for general auth-flow hygiene, not as the primary auth reference
+  ai:
+    - 01_SKILLS/ai/mcp-integration                          # audited 82, GOOD
+    - 01_SKILLS/ai/build-mcp-server                         # audited 86, GOOD -- reference if ARIA's tool layer ever needs an MCP boundary
+  agents:
+    - 01_SKILLS/agents/agent-development                     # audited 86, GOOD -- relevant to ARIA's tool-dispatch architecture
+    - 01_SKILLS/agents/agent-self-evaluation                  # audited 82, GOOD
+  testing:
+    - 01_SKILLS/testing/property-based-testing                 # audited 90, HIGH QUALITY -- Golden
+  security:
+    - 01_SKILLS/security/semgrep-rule-creator                    # audited 90, HIGH QUALITY -- Golden
+  automation:
+    - 01_SKILLS/automation/workflow-patterns                       # general n8n/automation patterns -- see known_gaps below, this is NOT n8n-specific
+  devops:
+    - 01_SKILLS/devops/git-advanced-workflows                       # relevant once this project actually initializes git (currently no .git repo)
+
+knowledge_references:
+  - 02_KNOWLEDGE/official-docs/supabase
+  - 02_KNOWLEDGE/official-docs/postgres
+  - 02_KNOWLEDGE/official-docs/n8n
+  - 02_KNOWLEDGE/official-docs/anthropic
+
+known_gaps:
+  - "n8n: zero curated skills exist anywhere in this repository (confirmed critical gap in the repo's own README). This project's live automation (agent-invite workflow) runs on n8n. Go to 05_UPSTREAM/n8n-skills/ (raw, unaudited) or n8n's official docs directly -- do not expect a 01_SKILLS/ entry."
+  - "WhatsApp Business API / messaging provider integration: no curated skill. Relevant once BUILD_GUIDE.md's WhatsApp visitor pipeline (Part C item 2) is built."
+  - "Multi-tenancy beyond Supabase RLS: no dedicated skill. This project's tenant isolation is agent_id-scoped RLS, which database/supabase covers at the RLS level only."
+  - "TypeScript-specific guidance: no dedicated curated skill (per ai-saas-builder.yaml's own known_gaps)."
+  - "Billing/Stripe: not applicable to this project currently, not included."
+
+notes: >
+  Composed 2026-08-13 during MASTER_05 setup. The two Supabase skills carry
+  review_status: pending_human_review (not yet through this repo's own
+  content-read audit) despite being official-vendor-sourced -- treat as
+  high-provenance, not independently verified. Re-check
+  00_MASTER/registry/audit_results.json next time this manifest is revisited
+  in case that changes.

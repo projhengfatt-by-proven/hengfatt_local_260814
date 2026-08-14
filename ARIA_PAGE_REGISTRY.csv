@@ -1,0 +1,111 @@
+Major Page,Subpage,Route,Activity,Description,Database Tables,Storage
+Dashboard,(single page),/portal/agent/dashboard,View KPI cards,"Show 4 live-computed stats: active listings, new leads (30d), pipeline value, viewings today","properties, leads, viewings",—
+Dashboard,(single page),/portal/agent/dashboard,View recent leads panel,List the 5 most recently created leads with AI score badge,leads,—
+Dashboard,(single page),/portal/agent/dashboard,View today's schedule,Show viewings/appointments scheduled for today,"viewings, appointments",—
+Dashboard,(single page),/portal/agent/dashboard,View AI-suggested actions,"ARIA surfaces recommended next actions (e.g. ""follow up with cold lead X"")","leads, agent_performance",—
+Dashboard,(single page),/portal/agent/dashboard,Jump to Leads/Listings/Schedule,Shortcut links from KPI cards to their full page,—,—
+Listings,Listing List,/portal/agent/listings,Search listings,Filter by keyword across title/address/property name,"properties, property_images",property-images
+Listings,Listing List,/portal/agent/listings,Filter by status,All / Live / Draft / Sold / Archived tabs,properties,—
+Listings,Listing List,/portal/agent/listings,View stats bar,"Live count, draft count, total views, total enquiries",properties,—
+Listings,Listing List,/portal/agent/listings,Publish / Unpublish,Toggle a listing between draft and active,properties,—
+Listings,Listing List,/portal/agent/listings,Delete listing,Remove listing and cascade its images/notes,"properties, property_images",property-images
+Listings,Listing List,/portal/agent/listings,Share listing,"Generate shareable link, WhatsApp message text, and QR code",properties,—
+Listings,Listing Detail,/portal/agent/listings/:id,View full listing spec,"Photos, price, specs, location, description in read-only layout",properties,property-images
+Listings,Listing Detail,/portal/agent/listings/:id,View performance stats,"View count, enquiry count, co-broke status, open-house status","property_view_logs, property_enquiries",—
+Listings,Listing Detail,/portal/agent/listings/:id,Jump to edit,Opens the same listing in the edit wizard,properties,—
+Listings,New/Edit Listing Wizard,"/portal/agent/listings/new, /portal/agent/listings/:id/edit",Step — Property Info,"Enter address, postal code, district, MRT, property type, transaction type, title","properties, districts",—
+Listings,New/Edit Listing Wizard,"/portal/agent/listings/new, /portal/agent/listings/:id/edit",Step — Details & Price,"Size, bedrooms/bathrooms/car parks, tenure, furnishing, TOP year, asking price/rental",properties,—
+Listings,New/Edit Listing Wizard,"/portal/agent/listings/new, /portal/agent/listings/:id/edit",Step — Photos & Media,"Upload photos, set cover photo, upload floor plans, add virtual tour URL","property_images, property_floor_plans","property-images, floor-plans"
+Listings,New/Edit Listing Wizard,"/portal/agent/listings/new, /portal/agent/listings/:id/edit",Step — Review & Publish,"Write description, toggle co-broke + commission %, set private notes (bottom price, urgency), publish or save draft","properties, property_private_notes",—
+Listings,New/Edit Listing Wizard,"/portal/agent/listings/new, /portal/agent/listings/:id/edit",Delete listing,Permanently remove listing (available from edit mode),properties,—
+Listings,Audio Tour,/portal/agent/listings/:id/audio,Record/upload narrated walkthrough,"Attach an audio file describing the property, playable on the public listing page",property_audio,property-audio (new)
+Listings,Co-Broke,/portal/agent/listings/:id/cobroke,Enable co-broke,Open the listing to other CEA agents with a defined commission split,property_cobroke,—
+Listings,Co-Broke,/portal/agent/listings/:id/cobroke,View/respond to co-broke requests,See other agents who've requested to co-broke and accept/decline,property_cobroke,—
+Listings,Open House,/portal/agent/listings/:id/open-house,Schedule open-house slot,Set a date/time window for public viewing,property_openhouse,—
+Listings,Open House,/portal/agent/listings/:id/open-house,Track RSVPs/attendance,See who registered and who showed up,property_openhouse,—
+Leads,Lead List,/portal/agent/leads,View lead list,Sortable/filterable list of all leads,"leads, enquiries",—
+Leads,Lead List,/portal/agent/leads,Filter by status,new / contacted / viewing / offer / closed / lost tabs,leads,—
+Leads,Lead List,/portal/agent/leads,Search by name,Filter list by lead name,leads,—
+Leads,Lead List,/portal/agent/leads,Add lead manually,Create a lead record without waiting for an inbound enquiry,leads,—
+Leads,Lead List,/portal/agent/leads,Reassign to another agent,"Invite a named colleague to take over a lead (light version — direct invite + accept/decline only, no public pool/claim/transfer/temporary modes)","leads, lead_shares",—
+Leads,Lead List,/portal/agent/leads,Accept/decline incoming reassignment,"Respond to a pending reassignment request addressed to you; accepting transfers leads.agent_id via a SECURITY DEFINER RPC","leads, lead_shares",—
+Leads,Lead Detail,/portal/agent/leads/:id,View lead profile,"Contact info, source, AI score/summary, qualification (budget/districts/types/nationality/financing/timeline), linked property",leads,—
+Leads,Lead Detail,/portal/agent/leads/:id,Open by name via ARIA,"""Show me detail of X"" — resolves the name against the agent's own leads and navigates directly, or offers a pick-list button per match if ambiguous. Built 2026-08-12 (lead_view tool).",leads,—
+Leads,Lead Detail,/portal/agent/leads/:id,Change status,"Move the lead through new → contacted → viewing → offer → closed/lost — built 2026-08-10, both here and inline on the Lead List card",leads,—
+Leads,Lead Detail,/portal/agent/leads/:id,Edit notes / set follow-up,"Freeform notes textarea + next-followup date, saved via updateLeadNotes() — built 2026-08-10",leads,—
+Leads,Lead Detail,/portal/agent/leads/:id,Reassign to another agent,Same shareLead() flow as the Lead List card — built 2026-08-10,"leads, lead_shares",—
+Leads,Lead Detail,/portal/agent/leads/:id,Log an interaction,"Not buildable as originally scoped — client_interactions has no confirmed table in the real schema (speculative from the original fresh-IA pass, see BUILD_GUIDE.md §16). Deferred.",client_interactions (unconfirmed),—
+Leads,Lead Detail,/portal/agent/leads/:id,Convert to client,"Not buildable as originally scoped — leads.client_id has no FK relationship in the real schema, meaning a clients table likely doesn't exist. Speculative, deferred per BUILD_GUIDE.md §16.",leads (client_id unconfirmed),—
+Leads,Lead Detail,/portal/agent/leads/:id,Book viewing for this lead,Shortcut into Calendar with this lead pre-selected,"viewings, leads",—
+Clients (CRM Pipeline),Client List,/portal/agent/clients,View client list,"All converted/active clients, filterable by pipeline stage",clients,—
+Clients (CRM Pipeline),Client Detail,/portal/agent/clients/:id,View profile & preferences,Contact details plus stated property preferences (budget, type, area),"clients, client_preferences",—
+Clients (CRM Pipeline),Client Detail,/portal/agent/clients/:id,View interaction history,Timeline of all logged calls/emails/meetings,client_interactions,—
+Clients (CRM Pipeline),Client Detail,/portal/agent/clients/:id,View saved searches/listings,What the client has bookmarked or asked to be alerted on,"saved_listings, saved_searches",—
+Clients (CRM Pipeline),Client Detail,/portal/agent/clients/:id,View linked deals,Any deals in progress or closed for this client,deals,—
+Clients (CRM Pipeline),Deal Pipeline Board,/portal/agent/deals,View kanban board,"Deals grouped by stage (e.g. negotiating, offer, closing)",deals,—
+Clients (CRM Pipeline),Deal Pipeline Board,/portal/agent/deals,Create deal,Start a new deal tied to a client + listing,deals,—
+Clients (CRM Pipeline),Deal Pipeline Board,/portal/agent/deals,Move deal stage,Advance or push back a deal's stage,deals,—
+Clients (CRM Pipeline),Deal Pipeline Board,/portal/agent/deals,Close/lose deal,"Mark a deal as won (closed) or lost, with reason",deals,—
+Schedule / Calendar,Calendar View,/portal/agent/schedule,View month/week/day grid,Real calendar visualization of all bookings,"viewings, appointments",—
+Schedule / Calendar,Calendar View,/portal/agent/schedule,View upcoming/past list,Flat chronological list as an alternate view,"viewings, appointments",—
+Schedule / Calendar,Book Viewing/Appointment,/portal/agent/schedule/new,Book a viewing,Pick lead + property + date/time/duration + notes,"viewings, leads, properties",—
+Schedule / Calendar,Book Viewing/Appointment,/portal/agent/schedule/new,Book a generic appointment,Non-property-tied calendar entry (e.g. client meeting),appointments,—
+Schedule / Calendar,Booking Detail,/portal/agent/schedule/:id,Confirm,Move a pending booking to confirmed,"viewings, appointments",—
+Schedule / Calendar,Booking Detail,/portal/agent/schedule/:id,Reschedule,Change date/time without cancel+rebook,"viewings, appointments",—
+Schedule / Calendar,Booking Detail,/portal/agent/schedule/:id,Cancel,Mark booking cancelled,"viewings, appointments",—
+Schedule / Calendar,Booking Detail,/portal/agent/schedule/:id,Mark completed,Record that the viewing/appointment happened,"viewings, appointments",—
+Schedule / Calendar,Reminders,/portal/agent/schedule/reminders,Set a reminder,"Attach a reminder to a lead, deal, or appointment",reminders,—
+Schedule / Calendar,Reminders,/portal/agent/schedule/reminders,View/dismiss reminders,See due/upcoming reminders and clear them,reminders,—
+My Files,Folder Grid,/portal/agent/files,Browse folders by category,All / Property / Client / Personal tabs,agent_files,agent-uploads
+My Files,Folder Grid,/portal/agent/files,Create folder,Name + category,agent_files,agent-uploads
+My Files,Folder Grid,/portal/agent/files,Rename folder,Inline rename,"agent_files, file_activity_log",agent-uploads
+My Files,Folder Grid,/portal/agent/files,Delete folder,Removes folder and all files inside (storage + DB),"agent_files, file_activity_log",agent-uploads
+My Files,Folder Detail,/portal/agent/files/:folder,Photos tab — upload/delete,Manage property/client photos in this folder,agent_files,agent-uploads
+My Files,Folder Detail,/portal/agent/files/:folder,Files tab — upload/move/delete,Manage documents; move between folders,agent_files,agent-uploads
+My Files,Folder Detail,/portal/agent/files/:folder,Notes tab — add/edit/delete,"Freeform notes, synced to rag_documents for ARIA search","agent_files, rag_documents",—
+My Files,Folder Detail,/portal/agent/files/:folder,Analyse folder with ARIA,Extract structured property data from folder contents,agent_files,agent-uploads
+My Files,Folder Detail,/portal/agent/files/:folder,Pre-fill listing from analysis,Jump into the New Listing wizard pre-populated with extracted data,properties,—
+Commission & Earnings,Calculator,/portal/agent/commission,Run what-if commission calc,"Enter price/rent, rate, co-broke split, GST toggle → see gross/net breakdown",—,—
+Commission & Earnings,Earnings History,/portal/agent/commission/history,View realized commission,"Actual commission earned per closed deal, filterable by period","deals, agent_performance",—
+Commission & Earnings,Statements,/portal/agent/commission/statements,Generate statement,Produce a commission statement document for a period,documents_generated,generated-documents (new)
+Commission & Earnings,Statements,/portal/agent/commission/statements,Download statement,Retrieve a previously generated statement,documents_generated,generated-documents (new)
+Marketing / Social Hub,Connected Accounts,/portal/agent/marketing/accounts,Connect account,Link a social platform account (e.g. Instagram, Facebook),social_accounts,—
+Marketing / Social Hub,Connected Accounts,/portal/agent/marketing/accounts,Disconnect account,Remove a linked account,social_accounts,—
+Marketing / Social Hub,Post Composer & Calendar,/portal/agent/marketing/posts,Create post,"Compose a social post, optionally from a template","social_posts, social_templates",content-assets (new)
+Marketing / Social Hub,Post Composer & Calendar,/portal/agent/marketing/posts,Schedule post,Set a future publish date/time,"social_posts, content_posts",content-assets (new)
+Marketing / Social Hub,Post Composer & Calendar,/portal/agent/marketing/posts,Publish post,Post immediately to connected account(s),social_posts,content-assets (new)
+Marketing / Social Hub,Post Composer & Calendar,/portal/agent/marketing/posts,View content calendar,Calendar view of scheduled/published posts,content_posts,—
+Marketing / Social Hub,Post Analytics,/portal/agent/marketing/analytics,View engagement/reach,"Per-post metrics (likes, shares, reach, clicks)",social_post_analytics,—
+Marketing / Social Hub,Campaigns,/portal/agent/marketing/campaigns,Create campaign,"Define a marketing campaign (goal, dates, audience)",campaigns,—
+Marketing / Social Hub,Campaigns,/portal/agent/marketing/campaigns,Attach leads to campaign,Associate leads generated by/targeted in the campaign,campaign_leads,—
+Marketing / Social Hub,Campaigns,/portal/agent/marketing/campaigns,Track campaign performance,View leads/conversions attributable to the campaign,"campaigns, campaign_leads",—
+Marketing / Social Hub,Broadcast Lists,/portal/agent/marketing/broadcasts,Manage broadcast list,Create/edit a list of recipients,broadcast_lists,—
+Marketing / Social Hub,Broadcast Lists,/portal/agent/marketing/broadcasts,Send blast,Send a WhatsApp or email message to a list,"broadcast_recipients, whatsapp_messages",—
+Marketing / Social Hub,Broadcast Lists,/portal/agent/marketing/broadcasts,View delivery status,Sent/delivered/read status per recipient,"broadcast_recipients, whatsapp_messages",—
+Documents,Document Generator,/portal/agent/documents/new,Generate document,"Produce a proposal/contract from a template, auto-filled with client + listing data","documents_generated, message_templates",generated-documents (new)
+Documents,Document Generator,/portal/agent/documents/new,Send to client,Deliver the generated document (email/WhatsApp/link),documents_generated,generated-documents (new)
+Documents,Document Library,/portal/agent/documents,View past documents,List of previously generated documents,documents_generated,generated-documents (new)
+Documents,Document Library,/portal/agent/documents,Download document,Retrieve a document file,documents_generated,generated-documents (new)
+Documents,Document Library,/portal/agent/documents,Resend document,Send an existing document again,documents_generated,generated-documents (new)
+Documents,Templates,/portal/agent/documents/templates,Create template,Define a reusable message/document template,"message_templates, social_templates",—
+Documents,Templates,/portal/agent/documents/templates,Edit template,Modify an existing template,"message_templates, social_templates",—
+Market Insights,Performance Dashboard,/portal/agent/insights/performance,View own KPIs over time,Trend charts of listings/leads/deals/commission against past periods,agent_performance,—
+Market Insights,Performance Dashboard,/portal/agent/insights/performance,Compare to targets,"Show progress against set goals, if any",agent_performance,—
+Market Insights,Market Reports,/portal/agent/insights/market,Browse market reports,List available district/segment reports,"market_reports, districts",—
+Market Insights,Market Reports,/portal/agent/insights/market,Download report,Retrieve a report file,market_reports,—
+Notifications,Notification Feed,/portal/agent/notifications,View notifications,Chronological feed of system/ARIA-generated alerts,notifications,—
+Notifications,Notification Feed,/portal/agent/notifications,Mark read/unread,Track which notifications have been seen,notifications,—
+Notifications,Notification Settings,/portal/agent/notifications/settings,Configure notification preferences,Choose which events trigger a notification and via what channel,notifications,—
+Profile & Settings,My Profile,/portal/agent/profile,Edit bio/photo/contact info,Update public-facing agent profile,"agent_profiles, profiles",agent-avatars
+Profile & Settings,My Profile,/portal/agent/profile,Manage CEA registration details,Update licensing info shown to clients,agent_profiles,—
+Profile & Settings,Testimonials,/portal/agent/profile/testimonials,Add testimonial,Record a client testimonial,testimonials,—
+Profile & Settings,Testimonials,/portal/agent/profile/testimonials,Approve/showcase testimonial,Select which testimonials appear publicly,testimonials,—
+Profile & Settings,To-Dos,/portal/agent/profile/tasks,View/manage task list,Personal to-do list for the agent,agent_tasks,—
+Profile & Settings,Account & Roles,/portal/agent/profile/account,Change password/email,Update login credentials,profiles,—
+Profile & Settings,Account & Roles,/portal/agent/profile/account,View assigned role,See current role (agent/admin),user_roles,—
+ARIA Assistant History,Conversation History,/portal/agent/aria/history,Browse past chat sessions,List of previous ARIA conversations,aria_conversations,—
+ARIA Assistant History,Conversation History,/portal/agent/aria/history,Search conversations,Find a past chat by keyword,"aria_conversations, rag_documents",—
+ARIA Assistant History,Voice Sessions,/portal/agent/aria/voice,Replay voice session,Play back a past voice interaction with ARIA,voice_sessions,voice-recordings (new)
+ARIA Assistant History,Voice Sessions,/portal/agent/aria/voice,Review session transcript,Read the text transcript of a voice session,voice_sessions,—
+ARIA Assistant History,Knowledge Base & Gaps,/portal/agent/aria/knowledge-base,Browse knowledge base,View the internal knowledge articles ARIA draws on,knowledge_base,—
+ARIA Assistant History,Knowledge Base & Gaps,/portal/agent/aria/knowledge-base,Review unanswered queries,"See questions ARIA couldn't answer, to add knowledge or flag for follow-up",unanswered_queries,—

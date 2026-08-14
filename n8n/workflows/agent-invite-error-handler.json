@@ -1,0 +1,73 @@
+{
+  "name": "Agent Invite - Error Handler",
+  "nodes": [
+    {
+      "id": "node-error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [-600, 0],
+      "parameters": {}
+    },
+    {
+      "id": "node-log-failure",
+      "name": "Log Failure to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-360, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/agent_invite_failures",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{$env.SUPABASE_SERVICE_ROLE_KEY}}" },
+            { "name": "Authorization", "value": "=Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"agent_id\": null, \"email\": null, \"payload\": $json, \"failed_node\": $json.execution?.lastNodeExecuted || 'unknown', \"error_message\": $json.execution?.error?.message || 'Unknown error' } }}",
+        "options": {},
+        "notesInFlow": true
+      },
+      "notes": "n8n's Error Trigger only reliably exposes execution metadata (error, lastNodeExecuted, execution.url), not the original webhook payload of the failed run. agent_id/email are left null here on purpose — payload stores the raw error-trigger JSON (including execution.url) so an admin can click through to the failed execution for full context instead of relying on a guessed data path."
+    },
+    {
+      "id": "node-alert-email",
+      "name": "Send Failure Alert Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [-120, 0],
+      "credentials": {
+        "smtp": {
+          "id": "",
+          "name": "Alert Email SMTP"
+        }
+      },
+      "parameters": {
+        "fromEmail": "alerts@hengfattproperty.example",
+        "toEmail": "admin@hengfattproperty.example",
+        "subject": "=Agent invite failed: {{$json.execution?.error?.message || 'unknown error'}}",
+        "emailFormat": "text",
+        "text": "=An agent-invite workflow run failed after retries were exhausted.\n\nFailed node: {{$json.execution?.lastNodeExecuted || 'unknown'}}\nError: {{$json.execution?.error?.message || 'unknown'}}\n\nA row has been logged in the agent_invite_failures table for follow-up.",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [[{ "node": "Log Failure to Supabase", "type": "main", "index": 0 }]]
+    },
+    "Log Failure to Supabase": {
+      "main": [[{ "node": "Send Failure Alert Email", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN password_set_at timestamp with time zone DEFAULT NULL;

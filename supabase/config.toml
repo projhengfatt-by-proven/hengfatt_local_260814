@@ -1,0 +1,16 @@
+project_id = "bkznuajqtfjezzeqqamz"
+
+[functions.aria-chat]
+verify_jwt = false
+
+[functions.send-agent-invite]
+verify_jwt = false
+
+[functions.analyse-agent-files]
+verify_jwt = false
+
+[functions.resend-agent-invite]
+verify_jwt = false
+
+[functions.classify-intent]
+verify_jwt = false

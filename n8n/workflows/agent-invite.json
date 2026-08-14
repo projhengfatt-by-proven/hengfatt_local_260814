@@ -1,0 +1,324 @@
+{
+  "name": "Agent Invite",
+  "nodes": [
+    {
+      "id": "node-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-800, 0],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-invite",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-check-secret",
+      "name": "Check Webhook Secret",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-560, 0],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-secret",
+              "leftValue": "={{$json.headers['x-n8n-webhook-secret']}}",
+              "rightValue": "={{$env.N8N_INVITE_WEBHOOK_SECRET}}",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-respond-401",
+      "name": "Respond Unauthorized",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-320, 160],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"Unauthorized\" } }}",
+        "options": { "responseCode": 401 }
+      }
+    },
+    {
+      "id": "node-check-fields",
+      "name": "Check Required Fields",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-320, -80],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-fullname",
+              "leftValue": "={{$json.body.full_name}}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            },
+            {
+              "id": "cond-email",
+              "leftValue": "={{$json.body.email}}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            },
+            {
+              "id": "cond-phone",
+              "leftValue": "={{$json.body.phone}}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-respond-400",
+      "name": "Respond Missing Fields",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-80, 160],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"full_name, email and phone are required\" } }}",
+        "options": { "responseCode": 400 }
+      }
+    },
+    {
+      "id": "node-invite",
+      "name": "Invite User via GoTrue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-80, -80],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/auth/v1/invite",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{$env.SUPABASE_SERVICE_ROLE_KEY}}" },
+            { "name": "Authorization", "value": "=Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"email\": $json.body.email, \"data\": { \"full_name\": $json.body.full_name, \"role\": \"agent\" } } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-already-registered",
+      "name": "Already Registered?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [160, 80],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "cond-dup1",
+              "leftValue": "={{$json.error?.message || $json.message || ''}}",
+              "rightValue": "already registered",
+              "operator": { "type": "string", "operation": "contains" }
+            },
+            {
+              "id": "cond-dup2",
+              "leftValue": "={{$json.error?.message || $json.message || ''}}",
+              "rightValue": "already been registered",
+              "operator": { "type": "string", "operation": "contains" }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-respond-409",
+      "name": "Respond Duplicate Email",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [400, 0],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"This email has already been invited or registered.\" } }}",
+        "options": { "responseCode": 409 }
+      }
+    },
+    {
+      "id": "node-rethrow",
+      "name": "Rethrow Invite Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, 160],
+      "parameters": {
+        "jsCode": "const err = $input.item.json;\nthrow new Error('Agent invite failed: ' + (err.error?.message || err.message || JSON.stringify(err)));"
+      }
+    },
+    {
+      "id": "node-compute-slug",
+      "name": "Compute Slug",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [160, -160],
+      "parameters": {
+        "jsCode": "const body = $('Webhook').item.json.body;\nconst inviteResult = $input.item.json;\nconst userId = inviteResult.user?.id || inviteResult.id;\nconst slug = (body.full_name || '')\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/(^-|-$)/g, '');\n\nreturn [{\n  json: {\n    user_id: userId,\n    email: body.email,\n    full_name: body.full_name,\n    phone: body.phone,\n    preferred_lang: body.preferred_lang || 'en',\n    cea_no: body.cea_no || 'PENDING',\n    years_experience: body.years_experience ?? 0,\n    agent_type: body.agent_type || 'external',\n    position: body.position || null,\n    specialisations: body.specialisations || [],\n    languages: body.languages || ['English'],\n    linkedin_url: body.linkedin_url || null,\n    display_order: body.display_order ?? 99,\n    bio_en: body.bio_en || null,\n    bio_zh: body.bio_zh || null,\n    slug\n  }\n}];"
+      }
+    },
+    {
+      "id": "node-upsert-profile",
+      "name": "Upsert Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, -160],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/profiles?on_conflict=id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{$env.SUPABASE_SERVICE_ROLE_KEY}}" },
+            { "name": "Authorization", "value": "=Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"id\": $json.user_id, \"email\": $json.email, \"full_name\": $json.full_name, \"phone\": $json.phone, \"preferred_lang\": $json.preferred_lang } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-upsert-role",
+      "name": "Upsert User Role",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, -160],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/user_roles?on_conflict=user_id,role",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{$env.SUPABASE_SERVICE_ROLE_KEY}}" },
+            { "name": "Authorization", "value": "=Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"user_id\": $('Compute Slug').item.json.user_id, \"role\": \"agent\" } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-upsert-agent-profile",
+      "name": "Upsert Agent Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, -160],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/agent_profiles?on_conflict=id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{$env.SUPABASE_SERVICE_ROLE_KEY}}" },
+            { "name": "Authorization", "value": "=Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"id\": $('Compute Slug').item.json.user_id, \"cea_no\": $('Compute Slug').item.json.cea_no, \"slug\": $('Compute Slug').item.json.slug, \"years_experience\": $('Compute Slug').item.json.years_experience, \"agent_type\": $('Compute Slug').item.json.agent_type, \"position\": $('Compute Slug').item.json.position, \"specialisations\": $('Compute Slug').item.json.specialisations, \"languages\": $('Compute Slug').item.json.languages, \"linkedin_url\": $('Compute Slug').item.json.linkedin_url, \"display_order\": $('Compute Slug').item.json.display_order, \"bio_en\": $('Compute Slug').item.json.bio_en, \"bio_zh\": $('Compute Slug').item.json.bio_zh } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, -160],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"user_id\": $('Compute Slug').item.json.user_id } }}",
+        "options": { "responseCode": 200 }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Check Webhook Secret", "type": "main", "index": 0 }]]
+    },
+    "Check Webhook Secret": {
+      "main": [
+        [{ "node": "Check Required Fields", "type": "main", "index": 0 }],
+        [{ "node": "Respond Unauthorized", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check Required Fields": {
+      "main": [
+        [{ "node": "Invite User via GoTrue", "type": "main", "index": 0 }],
+        [{ "node": "Respond Missing Fields", "type": "main", "index": 0 }]
+      ]
+    },
+    "Invite User via GoTrue": {
+      "main": [
+        [{ "node": "Compute Slug", "type": "main", "index": 0 }],
+        [{ "node": "Already Registered?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Already Registered?": {
+      "main": [
+        [{ "node": "Respond Duplicate Email", "type": "main", "index": 0 }],
+        [{ "node": "Rethrow Invite Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Compute Slug": {
+      "main": [[{ "node": "Upsert Profile", "type": "main", "index": 0 }]]
+    },
+    "Upsert Profile": {
+      "main": [[{ "node": "Upsert User Role", "type": "main", "index": 0 }]]
+    },
+    "Upsert User Role": {
+      "main": [[{ "node": "Upsert Agent Profile", "type": "main", "index": 0 }]]
+    },
+    "Upsert Agent Profile": {
+      "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
