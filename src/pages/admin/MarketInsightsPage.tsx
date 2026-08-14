@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
   buildInsightHref,
@@ -11,6 +12,7 @@ import {
   type MarketInsight,
   type MarketInsightForm,
 } from "@/lib/marketInsights";
+import { buildMarketInsightCopilotContext, generateMarketInsightDraft, type MarketInsightCopilotDraft } from "@/lib/marketInsightCopilot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarDays, Edit3, Eye, FileText, Plus, Save, Search, TrendingUp, Pin, Sparkles } from "lucide-react";
+import { CalendarDays, Edit3, Eye, FileText, Plus, Save, Search, Pin, Sparkles } from "lucide-react";
 
 const SINGAPORE_LUXURY_MARKET_TEMPLATE: MarketInsightForm = {
   title: "Singapore Luxury Property Market 2026: Why the Prime Market Is Regaining Momentum",
@@ -53,7 +55,7 @@ const SINGAPORE_LUXURY_MARKET_TEMPLATE: MarketInsightForm = {
   display_order: 1,
   period: "14 Aug 2026",
   read_time: "7 min read",
-  published: true,
+  published: false,
 };
 
 type InsightFilter = "all" | "published" | "draft" | "featured";
@@ -69,6 +71,11 @@ export default function MarketInsightsPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<InsightFilter>("all");
   const [form, setForm] = useState<MarketInsightForm>(emptyMarketInsightForm);
+  const [copilotPrompt, setCopilotPrompt] = useState("");
+  const [copilotDraft, setCopilotDraft] = useState<MarketInsightCopilotDraft | null>(null);
+  const [copilotNotes, setCopilotNotes] = useState("");
+  const [copilotGenerating, setCopilotGenerating] = useState(false);
+  const [copilotToken, setCopilotToken] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -89,13 +96,26 @@ export default function MarketInsightsPage() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setCopilotToken(session?.access_token ?? null);
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const editId = searchParams.get("edit");
     if (!editId || loading) return;
     const insight = items.find((item) => item.id === editId);
     if (insight) {
       startEdit(insight);
     }
-  }, [items, loading, searchParams]);
+  }, [items, loading, searchParams, startEdit]);
 
   const stats = useMemo(
     () => ({
@@ -131,17 +151,21 @@ export default function MarketInsightsPage() {
     setEditingId(null);
     setForm(emptyMarketInsightForm);
     setShowForm(false);
+    setCopilotDraft(null);
+    setCopilotNotes("");
     setSearchParams({});
   }
 
   function startCreate(template = false) {
     setEditingId(null);
-    setForm(template ? { ...SINGAPORE_LUXURY_MARKET_TEMPLATE, is_featured: true, display_order: 1 } : emptyMarketInsightForm);
+    setForm(template ? { ...SINGAPORE_LUXURY_MARKET_TEMPLATE, is_featured: true, display_order: 1, published: false } : emptyMarketInsightForm);
     setShowForm(true);
+    setCopilotDraft(null);
+    setCopilotNotes("");
     setSearchParams({});
   }
 
-  function startEdit(item: MarketInsight) {
+  const startEdit = useCallback((item: MarketInsight) => {
     setEditingId(item.id);
     setForm({
       title: item.title,
@@ -157,7 +181,80 @@ export default function MarketInsightsPage() {
       published: !!item.published_at,
     });
     setShowForm(true);
+    setCopilotDraft(null);
+    setCopilotNotes("");
     setSearchParams({ edit: item.id });
+  }, [setSearchParams]);
+
+  async function generateCopilotDraft() {
+    const prompt = copilotPrompt.trim();
+    if (!prompt) {
+      toast({ title: "Add a brief first", description: "Paste the source notes or the article idea before generating a draft.", variant: "destructive" });
+      return;
+    }
+
+    if (!copilotToken) {
+      toast({ title: "Copilot not ready", description: "Please sign in again and try once the session is restored.", variant: "destructive" });
+      return;
+    }
+
+    setCopilotGenerating(true);
+    const context = buildMarketInsightCopilotContext(
+      items.map((item) => ({
+        title: item.title,
+        category: item.category,
+        published_at: item.published_at,
+        is_featured: item.is_featured,
+        display_order: item.display_order,
+      }))
+    );
+
+    const { data, error, rawText } = await generateMarketInsightDraft({
+      prompt,
+      authToken: copilotToken,
+      context,
+    });
+    setCopilotGenerating(false);
+
+    if (error || !data) {
+      toast({
+        title: "Copilot draft failed",
+        description: error || rawText || "The copilot could not build a draft from that brief.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCopilotDraft(data);
+    setCopilotNotes(data.sourceNotes);
+    toast({ title: "Copilot draft ready", description: "Review the draft, then apply it to the form for the final approval step." });
+  }
+
+  function applyCopilotDraft() {
+    if (!copilotDraft) return;
+    setEditingId(null);
+    setForm({
+      title: copilotDraft.title,
+      category: copilotDraft.category,
+      description: copilotDraft.description,
+      body: copilotDraft.body,
+      file_url: copilotDraft.file_url,
+      cover_url: copilotDraft.cover_url,
+      is_featured: copilotDraft.is_featured,
+      display_order: copilotDraft.display_order,
+      period: copilotDraft.period,
+      read_time: copilotDraft.read_time,
+      published: false,
+    });
+    setShowForm(true);
+    setSearchParams({});
+    toast({ title: "Draft applied", description: "The form is now filled. Review it, then save as draft or publish." });
+  }
+
+  function clearCopilotDraft() {
+    setCopilotPrompt("");
+    setCopilotDraft(null);
+    setCopilotNotes("");
   }
 
   function openInsight(item: MarketInsight) {
@@ -254,11 +351,83 @@ export default function MarketInsightsPage() {
         </div>
       </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3">
         <StatCard label="Total" value={stats.total} />
         <StatCard label="Published" value={stats.published} />
         <StatCard label="Draft" value={stats.draft} />
       </div>
+
+      <Card className="border-border/70">
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle className="font-heading text-xl">Copilot draft</CardTitle>
+              <CardDescription className="font-body">
+                Paste the brief, let the copilot fill the form, then approve the draft before it is saved or published.
+              </CardDescription>
+            </div>
+            <Badge className="bg-gold/10 text-gold border-gold/30 font-body">Phase 1 of 4</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="space-y-3">
+              <Label htmlFor="copilot-brief">Admin brief</Label>
+              <Textarea
+                id="copilot-brief"
+                value={copilotPrompt}
+                onChange={(e) => setCopilotPrompt(e.target.value)}
+                rows={8}
+                placeholder="Paste the market notes, research points, or article outline here. The copilot will turn this into a draft."
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => void generateCopilotDraft()} disabled={copilotGenerating} className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {copilotGenerating ? "Drafting..." : "Generate draft"}
+                </Button>
+                <Button variant="outline" onClick={() => setCopilotPrompt(SINGAPORE_LUXURY_MARKET_TEMPLATE.body)}>
+                  Load example brief
+                </Button>
+                <Button variant="ghost" onClick={clearCopilotDraft}>
+                  Clear
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4 space-y-3">
+              <p className="font-body text-sm font-semibold text-foreground">Approval steps</p>
+              <ol className="space-y-2 text-sm font-body text-muted-foreground">
+                <li>1. Generate a draft from your source notes.</li>
+                <li>2. Review the preview and apply it to the form.</li>
+                <li>3. Save as draft or publish from the form itself.</li>
+              </ol>
+              {copilotDraft && (
+                <div className="rounded-xl border border-gold/30 bg-gold/5 p-3">
+                  <p className="font-body text-xs uppercase tracking-wide text-gold">Draft ready</p>
+                  <p className="mt-1 font-body text-sm font-semibold text-foreground">{copilotDraft.title}</p>
+                  <p className="mt-1 font-body text-sm text-muted-foreground">{copilotDraft.category}</p>
+                  {copilotDraft.sourceNotes && (
+                    <p className="mt-2 font-body text-sm text-muted-foreground whitespace-pre-wrap">{copilotDraft.sourceNotes}</p>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button size="sm" onClick={applyCopilotDraft} className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold">
+                      Apply to form
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { setCopilotDraft(null); setCopilotNotes(""); }}>
+                      Discard
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {!copilotDraft && (
+                <p className="font-body text-sm text-muted-foreground">
+                  The draft preview will appear here after generation.
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="rounded-2xl border border-border/70 bg-card p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -299,6 +468,17 @@ export default function MarketInsightsPage() {
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit}>
+              {copilotNotes && (
+                <div className="rounded-xl border border-gold/30 bg-gold/5 px-4 py-3">
+                  <p className="font-body text-sm font-semibold text-foreground">Copilot draft notes</p>
+                  <p className="mt-1 whitespace-pre-wrap font-body text-sm text-muted-foreground">
+                    {copilotNotes}
+                  </p>
+                  <p className="mt-2 font-body text-xs text-muted-foreground">
+                    Review this draft first, then confirm the next phase by saving as draft or publishing.
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Input id="category" value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} placeholder="MARKET OUTLOOK" />

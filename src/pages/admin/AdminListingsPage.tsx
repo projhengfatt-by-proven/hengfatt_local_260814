@@ -1,20 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { formatSGD } from "@/lib/listingHelpers";
 import { setListingFeatured, setListingStatus } from "@/components/admin/adminOperations";
+import { buildListingCopilotContext, generateListingDraft, type ListingCopilotDraft } from "@/lib/listingCopilot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, ExternalLink, Search, Sparkles } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Building2, ExternalLink, Search, Sparkles, Layers3 } from "lucide-react";
 
 type ListingRow = {
   id: string;
   title: string;
+  title_zh: string | null;
   property_name: string | null;
   type: string;
   district: number | null;
@@ -38,18 +42,24 @@ type ListingRow = {
 type StatusFilter = "all" | "active" | "draft";
 
 export default function AdminListingsPage() {
+  const navigate = useNavigate();
   const [listings, setListings] = useState<ListingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [saving, setSaving] = useState<string | null>(null);
+  const [copilotPrompt, setCopilotPrompt] = useState("");
+  const [copilotDraft, setCopilotDraft] = useState<ListingCopilotDraft | null>(null);
+  const [copilotNotes, setCopilotNotes] = useState("");
+  const [copilotGenerating, setCopilotGenerating] = useState(false);
+  const [copilotToken, setCopilotToken] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, title, property_name, type, district, price, monthly_rental, price_on_enquiry, status, is_featured, view_count, slug, created_at, agent_profiles!properties_agent_id_fkey(profiles(full_name)), property_images(url, is_cover)")
+        .select("id, title, title_zh, property_name, type, district, price, monthly_rental, price_on_enquiry, status, is_featured, view_count, slug, created_at, agent_profiles!properties_agent_id_fkey(profiles(full_name)), property_images(url, is_cover)")
         .order("created_at", { ascending: false });
 
       if (!mounted) return;
@@ -62,6 +72,18 @@ export default function AdminListingsPage() {
       setLoading(false);
     })();
 
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setCopilotToken(session?.access_token ?? null);
+    })();
     return () => {
       mounted = false;
     };
@@ -121,6 +143,71 @@ export default function AdminListingsPage() {
     toast({ title: nextStatus === "active" ? "Listing published" : "Listing moved to draft" });
   }
 
+  async function generateCopilotDraft() {
+    const prompt = copilotPrompt.trim();
+    if (!prompt) {
+      toast({ title: "Add a brief first", description: "Paste the listing notes or property brief before generating a draft.", variant: "destructive" });
+      return;
+    }
+
+    if (!copilotToken) {
+      toast({ title: "Copilot not ready", description: "Please sign in again and try once the session is restored.", variant: "destructive" });
+      return;
+    }
+
+    setCopilotGenerating(true);
+    const context = buildListingCopilotContext(
+      listings.map((item) => ({
+        id: item.id,
+        title: item.title,
+        title_zh: item.title_zh,
+        status: item.status,
+        is_featured: item.is_featured,
+        view_count: item.view_count,
+        price: item.price,
+        monthly_rental: item.monthly_rental,
+        price_on_enquiry: item.price_on_enquiry,
+        property_name: item.property_name,
+        type: item.type,
+        district: item.district,
+        agent_name: item.agent_profiles?.profiles?.full_name ?? null,
+      }))
+    );
+
+    const { data, error, rawText } = await generateListingDraft({
+      prompt,
+      authToken: copilotToken,
+      context,
+    });
+    setCopilotGenerating(false);
+
+    if (error || !data) {
+      toast({
+        title: "Copilot draft failed",
+        description: error || rawText || "The copilot could not build a draft from that brief.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCopilotDraft(data);
+    setCopilotNotes(data.sourceNotes);
+    toast({ title: "Copilot draft ready", description: "Review the draft, then apply it to the admin listing form for the final approval step." });
+  }
+
+  function applyCopilotDraft() {
+    if (!copilotDraft) return;
+    window.sessionStorage.setItem("aria_prefill", JSON.stringify(copilotDraft.prefill));
+    navigate("/admin/listings/new?admin=1");
+    toast({ title: "Draft applied", description: "The admin listing form is now prefilled. Review it, then save or publish." });
+  }
+
+  function clearCopilotDraft() {
+    setCopilotPrompt("");
+    setCopilotDraft(null);
+    setCopilotNotes("");
+  }
+
   return (
     <div className="p-6 sm:p-8 max-w-7xl space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -141,6 +228,78 @@ export default function AdminListingsPage() {
           </Link>
         </Button>
       </div>
+
+      <Card className="border-border/70">
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle className="font-heading text-xl">Copilot draft</CardTitle>
+              <CardDescription className="font-body">
+                Paste a property brief, let the copilot draft the listing, then apply it to the shared create form for final approval.
+              </CardDescription>
+            </div>
+            <Badge className="bg-gold/10 text-gold border-gold/30 font-body">Phase 2 of 4</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="space-y-3">
+              <Label htmlFor="listing-copilot-brief">Admin brief</Label>
+              <Textarea
+                id="listing-copilot-brief"
+                value={copilotPrompt}
+                onChange={(e) => setCopilotPrompt(e.target.value)}
+                rows={9}
+                placeholder="Paste the property details, listing notes, suggested price, photos, or owner notes here."
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => void generateCopilotDraft()} disabled={copilotGenerating} className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {copilotGenerating ? "Drafting..." : "Generate draft"}
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/admin/listings/new?admin=1")}>
+                  <Layers3 className="mr-2 h-4 w-4" />
+                  Open create form
+                </Button>
+                <Button variant="ghost" onClick={clearCopilotDraft}>
+                  Clear
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4 space-y-3">
+              <p className="font-body text-sm font-semibold text-foreground">Approval steps</p>
+              <ol className="space-y-2 text-sm font-body text-muted-foreground">
+                <li>1. Generate a draft from your brief.</li>
+                <li>2. Review the preview and apply it to the shared admin listing form.</li>
+                <li>3. Save as draft or publish from the listing form itself.</li>
+              </ol>
+              {copilotDraft && (
+                <div className="rounded-xl border border-gold/30 bg-gold/5 p-3">
+                  <p className="font-body text-xs uppercase tracking-wide text-gold">Draft ready</p>
+                  <p className="mt-1 font-body text-sm font-semibold text-foreground">
+                    {String(copilotDraft.prefill.title ?? copilotDraft.prefill.property_name ?? "Untitled listing")}
+                  </p>
+                  {copilotNotes && <p className="mt-2 whitespace-pre-wrap font-body text-sm text-muted-foreground">{copilotNotes}</p>}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button size="sm" onClick={applyCopilotDraft} className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold">
+                      Apply to form
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { setCopilotDraft(null); setCopilotNotes(""); }}>
+                      Discard
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {!copilotDraft && (
+                <p className="font-body text-sm text-muted-foreground">
+                  The draft preview will appear here after generation.
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total" value={stats.total} />

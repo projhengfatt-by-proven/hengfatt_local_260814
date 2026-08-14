@@ -1,10 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import AddNewAgentForm from "@/components/admin/AddNewAgentForm";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -17,9 +27,15 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Pencil, Send, Loader2, Search, UserPlus } from "lucide-react";
+import { Pencil, Send, Loader2, Search, Sparkles, UserPlus } from "lucide-react";
 import { resendAgentInvite, setAgentActive, setAgentVisibility, setAgentAdminRole } from "@/components/admin/adminOperations";
+import {
+  buildAgentInviteCopilotContext,
+  generateAgentInviteDraft,
+  type AgentInviteDraft,
+} from "@/lib/agentInviteCopilot";
 
 type AgentRow = {
   id: string;
@@ -51,6 +67,13 @@ export default function AgentsListPage() {
   const [filter, setFilter] = useState<AgentFilter>("all");
   const [searchParams] = useSearchParams();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [invitePrompt, setInvitePrompt] = useState("");
+  const [inviteDraft, setInviteDraft] = useState<AgentInviteDraft | null>(null);
+  const [inviteDraftRaw, setInviteDraftRaw] = useState("");
+  const [inviteDraftError, setInviteDraftError] = useState("");
+  const [generatingInviteDraft, setGeneratingInviteDraft] = useState(false);
+  const [confirmApplyOpen, setConfirmApplyOpen] = useState(false);
+  const createSectionRef = useRef<HTMLDivElement | null>(null);
 
   async function fetchAgents() {
     const { data, error } = await supabase
@@ -90,6 +113,18 @@ export default function AgentsListPage() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!showCreateForm) return;
+
+    const timer = window.setTimeout(() => {
+      createSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const firstInput = document.getElementById("fullName") as HTMLInputElement | null;
+      firstInput?.focus();
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [showCreateForm]);
+
   const filteredAgents = useMemo(() => {
     return agents.filter((agent) => {
       const status = agent.profiles?.password_set_at ? "active" : "pending-invite";
@@ -123,6 +158,18 @@ export default function AgentsListPage() {
     admins: agents.filter((agent) => agent.is_admin).length,
     pendingInvite: agents.filter((agent) => !agent.profiles?.password_set_at).length,
   }), [agents]);
+
+  const inviteCopilotContext = useMemo(() => {
+    return buildAgentInviteCopilotContext(
+      agents.map((agent) => ({
+        full_name: agent.profiles?.full_name ?? null,
+        email: agent.profiles?.email ?? null,
+        agent_type: agent.agent_type ?? null,
+        is_published: agent.is_published,
+        is_featured: agent.is_featured,
+      }))
+    );
+  }, [agents]);
 
   async function handleVisibility(agent: AgentRow, field: "is_published" | "is_featured", value: boolean) {
     const result = await setAgentVisibility(agent.id, { [field]: value });
@@ -168,6 +215,62 @@ export default function AgentsListPage() {
     toast({ title: value ? "Admin role granted" : "Admin role removed" });
   }
 
+  async function handleGenerateInviteDraft() {
+    if (!invitePrompt.trim()) {
+      toast({
+        title: "Add a short brief",
+        description: "Tell the copilot who this agent is and what details should be filled in.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGeneratingInviteDraft(true);
+    setInviteDraftError("");
+    setInviteDraft(null);
+    setInviteDraftRaw("");
+
+    const { data: session } = await supabase.auth.getSession();
+    const result = await generateAgentInviteDraft({
+      prompt: invitePrompt.trim(),
+      authToken: session.session?.access_token ?? null,
+      context: inviteCopilotContext,
+    });
+
+    setGeneratingInviteDraft(false);
+
+    if (result.error || !result.data) {
+      setInviteDraftError(result.error ?? "The copilot could not build a draft.");
+      setInviteDraftRaw(result.rawText);
+      toast({
+        title: "Draft generation failed",
+        description: result.error ?? "Please refine the brief and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setInviteDraft(result.data);
+    setInviteDraftRaw(result.rawText);
+  }
+
+  function applyInviteDraftToForm() {
+    if (!inviteDraft) return;
+    setConfirmApplyOpen(true);
+  }
+
+  function confirmApplyInviteDraft() {
+    if (!inviteDraft) return;
+
+    sessionStorage.setItem("agent_invite_prefill", JSON.stringify(inviteDraft));
+    setConfirmApplyOpen(false);
+    setShowCreateForm(true);
+    toast({
+      title: "Draft copied to form",
+      description: "The invite form is open and ready for review.",
+    });
+  }
+
   const initials = (name: string | null) =>
     (name ?? "??")
       .split(" ")
@@ -198,8 +301,120 @@ export default function AgentsListPage() {
         </Button>
       </div>
 
+      <div className="rounded-2xl border border-gold/20 bg-gold/5 p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-gold" />
+              <Badge variant="secondary" className="bg-gold/10 text-gold border-gold/30 font-body">
+                Phase 3: Agent Invite Copilot
+              </Badge>
+            </div>
+            <h2 className="mt-2 font-heading text-xl font-semibold text-foreground">Draft an invite before sending</h2>
+            <p className="mt-2 font-body text-sm text-muted-foreground">
+              Describe the agent in plain language. The copilot will fill a structured draft, then we can review it and push
+              it into the existing invite form for final confirmation.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={handleGenerateInviteDraft}
+            disabled={generatingInviteDraft}
+            className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold"
+          >
+            {generatingInviteDraft ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            Generate draft
+          </Button>
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+          <div className="space-y-3">
+            <Textarea
+              value={invitePrompt}
+              onChange={(e) => setInvitePrompt(e.target.value)}
+              rows={5}
+              placeholder="Example: Create an external agent invite for Amelia Tan, senior residential specialist, English + Mandarin, strong in condo and landed homes, CEA number R123456A, around 8 years of experience..."
+              className="min-h-[140px]"
+            />
+            <p className="font-body text-xs text-muted-foreground">
+              Use this for the first-pass draft only. We still review the data manually before the invite is sent.
+            </p>
+            {inviteDraftError && (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 font-body text-sm text-destructive">
+                {inviteDraftError}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-border/70 bg-background p-4">
+            <div className="flex items-center justify-between">
+              <p className="font-heading text-sm font-semibold text-foreground">Draft preview</p>
+              {inviteDraft && (
+                <Button type="button" variant="outline" size="sm" onClick={applyInviteDraftToForm}>
+                  Apply to form
+                </Button>
+              )}
+            </div>
+
+            {inviteDraft ? (
+              <div className="mt-3 space-y-2 font-body text-sm">
+                <p><span className="font-semibold text-foreground">Name:</span> {inviteDraft.fullName}</p>
+                <p><span className="font-semibold text-foreground">Email:</span> {inviteDraft.email}</p>
+                <p><span className="font-semibold text-foreground">Phone:</span> {inviteDraft.phone}</p>
+                <p><span className="font-semibold text-foreground">Agent type:</span> {inviteDraft.agentType}</p>
+                <p><span className="font-semibold text-foreground">Position:</span> {inviteDraft.position || "Not set yet"}</p>
+                <p><span className="font-semibold text-foreground">Languages:</span> {inviteDraft.languages.join(", ")}</p>
+                <p><span className="font-semibold text-foreground">Specialisations:</span> {inviteDraft.specialisations.join(", ") || "Not set yet"}</p>
+                <p><span className="font-semibold text-foreground">Notes:</span> {inviteDraft.sourceNotes || "No notes returned"}</p>
+              </div>
+            ) : (
+              <p className="mt-3 font-body text-sm text-muted-foreground">
+                Generated details will appear here before we copy them into the invite form.
+              </p>
+            )}
+
+            {inviteDraftRaw && (
+              <details className="mt-4">
+                <summary className="cursor-pointer font-body text-xs text-muted-foreground">
+                  Raw copilot output
+                </summary>
+                <pre className="mt-2 max-h-48 overflow-auto rounded-lg bg-muted p-3 font-mono text-[11px] text-muted-foreground">
+                  {inviteDraftRaw}
+                </pre>
+              </details>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <AlertDialog open={confirmApplyOpen} onOpenChange={setConfirmApplyOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply this draft to the invite form?</AlertDialogTitle>
+            <AlertDialogDescription>
+              We will copy the draft into the existing create form, open that section, and focus the first field so you can
+              review it before sending the invite.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {inviteDraft && (
+            <div className="space-y-2 rounded-lg border border-border/70 bg-muted/30 p-3 text-sm font-body">
+              <p><span className="font-semibold text-foreground">Name:</span> {inviteDraft.fullName}</p>
+              <p><span className="font-semibold text-foreground">Email:</span> {inviteDraft.email}</p>
+              <p><span className="font-semibold text-foreground">Agent type:</span> {inviteDraft.agentType}</p>
+              <p><span className="font-semibold text-foreground">Languages:</span> {inviteDraft.languages.join(", ")}</p>
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmApplyInviteDraft}>Apply draft</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {showCreateForm && (
-        <div id="create-agent" className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+        <div ref={createSectionRef} id="create-agent" className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
           <div className="flex flex-col gap-2 border-b border-border/70 pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="font-heading text-xl font-semibold text-foreground">Create a new agent</h2>

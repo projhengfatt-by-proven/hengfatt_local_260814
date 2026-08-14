@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,49 @@ export default function AddNewAgentForm() {
 
   // Validation
   const [ceaError, setCeaError] = useState("");
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem("agent_invite_prefill");
+    if (!raw) return;
+
+    try {
+      const data = JSON.parse(raw) as Partial<{
+        fullName: string;
+        email: string;
+        phone: string;
+        preferredLang: "en" | "zh";
+        ceaNo: string;
+        yearsExperience: number | "";
+        agentType: "internal" | "external";
+        position: string;
+        specialisations: string[];
+        languages: string[];
+        linkedinUrl: string;
+        displayOrder: number | "";
+        bioEn: string;
+        bioZh: string;
+      }>;
+
+      if (data.fullName) setFullName(data.fullName);
+      if (data.email) setEmail(data.email);
+      if (data.phone) setPhone(data.phone);
+      if (data.preferredLang) setPreferredLang(data.preferredLang);
+      if (data.ceaNo !== undefined) validateCea(data.ceaNo);
+      if (data.yearsExperience !== undefined) setYearsExp(data.yearsExperience);
+      if (data.agentType) setAgentType(data.agentType);
+      if (data.position !== undefined) setPosition(data.position);
+      if (data.specialisations) setSpecialisations(data.specialisations);
+      if (data.languages) setLanguages(data.languages.length ? data.languages : ["English"]);
+      if (data.linkedinUrl !== undefined) setLinkedinUrl(data.linkedinUrl);
+      if (data.displayOrder !== undefined) setDisplayOrder(data.displayOrder);
+      if (data.bioEn !== undefined) setBioEn(data.bioEn);
+      if (data.bioZh !== undefined) setBioZh(data.bioZh);
+    } catch {
+      // Ignore malformed prefill data and leave the form blank.
+    }
+
+    sessionStorage.removeItem("agent_invite_prefill");
+  }, []);
 
   function togglePill(list: string[], value: string, setter: React.Dispatch<React.SetStateAction<string[]>>) {
     setter(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
