@@ -22,8 +22,11 @@ import EditAgentPage from "./pages/admin/EditAgentPage";
 import ActivityLogPage from "./pages/admin/ActivityLogPage";
 import AdminListingsPage from "./pages/admin/AdminListingsPage";
 import ApplicationsPage from "./pages/admin/ApplicationsPage";
+import MarketInsightsPage from "./pages/admin/MarketInsightsPage";
 import ReportsPage from "./pages/admin/ReportsPage";
 import SettingsPage from "./pages/admin/SettingsPage";
+import InsightsPage from "./pages/InsightsPage";
+import InsightDetailPage from "./pages/InsightDetailPage";
 import PropertiesPage from "./pages/PropertiesPage";
 import PropertyDetailPage from "./pages/PropertyDetailPage";
 import AgentListingsPage from "./pages/portal/AgentListingsPage";
@@ -32,10 +35,6 @@ import EditListingPage from "./pages/portal/EditListingPage";
 import {
   About,
   Team,
-  Listings,
-  ListingDetail,
-  Insights,
-  InsightDetail,
   Services,
   Contact,
   MemberPortal,
@@ -56,8 +55,8 @@ function StandardPages() {
         <Route path="/properties/:slug" element={<PropertyDetailPage />} />
         <Route path="/listings" element={<PropertiesPage />} />
         <Route path="/listings/:id" element={<PropertyDetailPage />} />
-        <Route path="/insights" element={<Insights />} />
-        <Route path="/insights/:slug" element={<InsightDetail />} />
+        <Route path="/insights" element={<InsightsPage />} />
+        <Route path="/insights/:slug" element={<InsightDetailPage />} />
         <Route path="/services" element={<Services />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/apply" element={<AgentApplication />} />
@@ -100,6 +99,7 @@ const App = () => (
             <Route path="listings" element={<AdminListingsPage />} />
             <Route path="listings/new" element={<NewListingPage />} />
             <Route path="properties" element={<AdminListingsPage />} />
+            <Route path="insights" element={<MarketInsightsPage />} />
             <Route path="applications" element={<ApplicationsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />

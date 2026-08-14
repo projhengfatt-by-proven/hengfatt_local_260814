@@ -17,6 +17,7 @@ import {
   Menu,
   ClipboardList,
   Sparkles,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -31,6 +32,7 @@ const navItems = [
   { label: "Add New Agent", icon: UserPlus, path: "/admin/agents/new", badge: true },
   { label: "Activity Log", icon: ClipboardList, path: "/admin/activity" },
   { label: "Listings", icon: Building2, path: "/admin/listings" },
+  { label: "Insights", icon: TrendingUp, path: "/admin/insights" },
   { label: "Applications", icon: FileText, path: "/admin/applications" },
   { label: "Reports", icon: BarChart3, path: "/admin/reports" },
   { label: "Settings", icon: Settings, path: "/admin/settings" },
