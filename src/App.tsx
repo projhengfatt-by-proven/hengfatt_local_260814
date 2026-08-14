@@ -15,12 +15,15 @@ import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminCopilotPage from "./pages/admin/AdminCopilotPage";
 import AddNewAgentPage from "./pages/admin/AddNewAgentPage";
 import AgentsListPage from "./pages/admin/AgentsListPage";
 import EditAgentPage from "./pages/admin/EditAgentPage";
 import ActivityLogPage from "./pages/admin/ActivityLogPage";
-import AdminPlaceholder from "./pages/admin/AdminPlaceholder";
 import AdminListingsPage from "./pages/admin/AdminListingsPage";
+import ApplicationsPage from "./pages/admin/ApplicationsPage";
+import ReportsPage from "./pages/admin/ReportsPage";
+import SettingsPage from "./pages/admin/SettingsPage";
 import PropertiesPage from "./pages/PropertiesPage";
 import PropertyDetailPage from "./pages/PropertyDetailPage";
 import AgentListingsPage from "./pages/portal/AgentListingsPage";
@@ -89,15 +92,17 @@ const App = () => (
           {/* Admin panel with sidebar layout — protected */}
           <Route path="/admin" element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
             <Route index element={<AdminDashboard />} />
+            <Route path="copilot" element={<AdminCopilotPage />} />
             <Route path="agents" element={<AgentsListPage />} />
             <Route path="agents/new" element={<AddNewAgentPage />} />
             <Route path="agents/:id/edit" element={<EditAgentPage />} />
             <Route path="activity" element={<ActivityLogPage />} />
             <Route path="listings" element={<AdminListingsPage />} />
-            <Route path="properties" element={<AdminPlaceholder />} />
-            <Route path="applications" element={<AdminPlaceholder />} />
-            <Route path="reports" element={<AdminPlaceholder />} />
-            <Route path="settings" element={<AdminPlaceholder />} />
+            <Route path="listings/new" element={<NewListingPage />} />
+            <Route path="properties" element={<AdminListingsPage />} />
+            <Route path="applications" element={<ApplicationsPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
 
           {/* Everything else uses the standard layout */}

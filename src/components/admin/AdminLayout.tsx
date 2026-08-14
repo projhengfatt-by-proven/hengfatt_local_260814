@@ -16,6 +16,7 @@ import {
   X,
   Menu,
   ClipboardList,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -25,6 +26,7 @@ const STORAGE_KEY = "admin-sidebar-collapsed";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/admin" },
+  { label: "Copilot", icon: Sparkles, path: "/admin/copilot" },
   { label: "Agents", icon: Users, path: "/admin/agents" },
   { label: "Add New Agent", icon: UserPlus, path: "/admin/agents/new", badge: true },
   { label: "Activity Log", icon: ClipboardList, path: "/admin/activity" },

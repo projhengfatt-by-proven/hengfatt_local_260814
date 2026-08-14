@@ -109,6 +109,19 @@ export default function AddNewAgentForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-10">
+      <div className="rounded-2xl border border-gold/20 bg-gold/5 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className="bg-gold/10 text-gold border-gold/30 font-body">
+            Create + Invite
+          </Badge>
+          <p className="font-body text-sm font-semibold text-foreground">
+            This form creates the agent profile and sends the invite email in one step.
+          </p>
+        </div>
+        <p className="mt-2 font-body text-sm text-muted-foreground">
+          Double-check the name, email, and agent type before submitting. The invite email is the starting point for their first login or password recovery.
+        </p>
+      </div>
       {/* ── Section A: Profile ── */}
       <section className="space-y-4">
         <h2 className="font-heading text-lg font-semibold text-foreground border-b border-border pb-2">
@@ -345,6 +358,9 @@ export default function AddNewAgentForm() {
           "Create Agent & Send Invite"
         )}
       </Button>
+      <p className="font-body text-xs text-muted-foreground">
+        The admin activity log records the invite once it is sent.
+      </p>
     </form>
   );
 }

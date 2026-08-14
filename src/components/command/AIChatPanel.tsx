@@ -570,9 +570,11 @@ export function AIChatPanel({ className = "" }: { className?: string }) {
       abortRef.current = controller;
 
       const currentUser = user;
+      const { data: { session } } = await supabase.auth.getSession();
       await streamARIA({
         messages: history,
         agentContext: state.agentContext,
+        authToken: session?.access_token ?? null,
         signal: controller.signal,
         onDelta: (chunk) => {
           fullResponse += chunk;

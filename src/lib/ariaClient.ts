@@ -15,6 +15,9 @@ export interface ToolCall {
 interface StreamChatParams {
   messages: ChatMessage[];
   agentContext?: any;
+  assistantContext?: any;
+  assistantRole?: "agent" | "admin";
+  authToken?: string | null;
   onDelta: (text: string) => void;
   onDone: (cleanText: string, toolCalls: ToolCall[], stopReason: string | null) => void;
   onError?: (error: string) => void;
@@ -37,6 +40,9 @@ interface BlockState {
 export async function streamARIA({
   messages,
   agentContext,
+  assistantContext,
+  assistantRole = "agent",
+  authToken,
   onDelta,
   onDone,
   onError,
@@ -46,9 +52,14 @@ export async function streamARIA({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      Authorization: `Bearer ${authToken ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
-    body: JSON.stringify({ messages, agentContext }),
+    body: JSON.stringify({
+      messages,
+      agentContext,
+      assistantContext,
+      assistantRole,
+    }),
     signal,
   });
 

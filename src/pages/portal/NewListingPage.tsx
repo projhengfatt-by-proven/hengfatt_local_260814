@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,18 @@ interface PhotoItem {
   url: string;
   is_cover: boolean;
   preview?: string;
+}
+
+interface OwnerAgent {
+  id: string;
+  agent_type: string | null;
+  is_published: boolean | null;
+  display_order: number | null;
+  profiles: {
+    full_name: string | null;
+    email: string | null;
+    is_active: boolean | null;
+  } | null;
 }
 
 const defaultForm = {
@@ -62,6 +74,8 @@ const defaultForm = {
 
 export default function NewListingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({ ...defaultForm });
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
@@ -71,8 +85,12 @@ export default function NewListingPage() {
   const [prefillFolder, setPrefillFolder] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [pasteUrl, setPasteUrl] = useState("");
+  const [ownerAgents, setOwnerAgents] = useState<OwnerAgent[]>([]);
+  const [ownerId, setOwnerId] = useState(searchParams.get("owner_id") ?? "");
+  const [loadingOwners, setLoadingOwners] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const floorRef = useRef<HTMLInputElement>(null);
+  const isAdminMode = location.pathname.startsWith("/admin") || searchParams.get("admin") === "1";
 
   useEffect(() => {
     const raw = sessionStorage.getItem("aria_prefill");
@@ -88,6 +106,32 @@ export default function NewListingPage() {
       } catch {}
     }
   }, []);
+
+  useEffect(() => {
+    if (!isAdminMode) return;
+
+    let mounted = true;
+    (async () => {
+      setLoadingOwners(true);
+      const { data, error } = await supabase
+        .from("agent_profiles")
+        .select("id, agent_type, is_published, display_order, profiles(full_name, email, is_active)")
+        .order("display_order", { ascending: true });
+
+      if (!mounted) return;
+
+      if (error) {
+        toast({ title: "Could not load agent owners", description: error.message, variant: "destructive" });
+      } else {
+        setOwnerAgents((data ?? []) as OwnerAgent[]);
+      }
+      setLoadingOwners(false);
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isAdminMode]);
 
   const set = (key: string, val: any) => setFormData((p) => ({ ...p, [key]: val }));
 
@@ -143,13 +187,18 @@ export default function NewListingPage() {
   const handleSave = async (isDraft: boolean) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+    const primaryOwnerId = isAdminMode ? ownerId : session.user.id;
+    if (!primaryOwnerId) {
+      toast({ title: "Choose a primary owner", description: "Please select the agent who will own this listing.", variant: "destructive" });
+      return;
+    }
     if (!isDraft && getRequired().length > 0) { setShowErrors(true); return; }
     setSaving(true);
 
     const { data: property, error } = await supabase
       .from("properties")
       .insert({
-        agent_id: session.user.id,
+        agent_id: primaryOwnerId,
         title: formData.title || formData.property_name || "Untitled",
         property_name: formData.property_name || null,
         unit_number: formData.unit_number || null,
@@ -255,7 +304,7 @@ export default function NewListingPage() {
 
     setSaving(false);
     toast({ title: isDraft ? "Draft saved" : "🎉 Listing is now live!" });
-    navigate("/portal/agent/listings");
+    navigate(isAdminMode ? "/admin/listings" : "/portal/agent/listings");
   };
 
   const stepNames = ["Property Info", "Details & Price", "Photos & Media", "Review & Publish"];
@@ -292,18 +341,59 @@ export default function NewListingPage() {
     </div>
   );
 
+  const ownerOptions = ownerAgents;
+  const selectedOwner = ownerAgents.find((agent) => agent.id === ownerId) ?? null;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-card shadow-sm px-6 py-4 flex items-center justify-between">
-        <button onClick={() => navigate("/portal/agent/listings")} className="flex items-center gap-2 text-sm text-muted-foreground font-body hover:text-foreground">
-          <ArrowLeft className="w-4 h-4" /> My Listings
+        <button
+          onClick={() => navigate(isAdminMode ? "/admin/listings" : "/portal/agent/listings")}
+          className="flex items-center gap-2 text-sm text-muted-foreground font-body hover:text-foreground"
+        >
+          <ArrowLeft className="w-4 h-4" /> {isAdminMode ? "Admin Listings" : "My Listings"}
         </button>
-        <h1 className="font-heading text-xl font-bold text-foreground">New Listing</h1>
+        <h1 className="font-heading text-xl font-bold text-foreground">
+          {isAdminMode ? "Admin Create Listing" : "New Listing"}
+        </h1>
         <Button variant="outline" size="sm" onClick={() => handleSave(true)} disabled={saving}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Draft"}
         </Button>
       </div>
+
+      {isAdminMode && (
+        <div className="bg-card rounded-xl mx-4 mt-4 p-4 shadow-sm border border-border/70">
+          <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <h2 className="font-heading text-lg font-semibold text-foreground">Primary owner</h2>
+              <p className="font-body text-sm text-muted-foreground">
+                Choose the single agent who will own this listing. The listing still uses the same `properties.agent_id` field, so permissions stay simple.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Select value={ownerId} onValueChange={setOwnerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingOwners ? "Loading agents..." : "Select primary owner"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {ownerOptions.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.profiles?.full_name ?? agent.profiles?.email ?? agent.id}
+                      {agent.is_published ? " (published)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedOwner && (
+                <p className="font-body text-xs text-muted-foreground">
+                  Selected owner: {selectedOwner.profiles?.full_name ?? selectedOwner.profiles?.email ?? selectedOwner.id}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Step Progress */}
       <div className="bg-card p-4 mb-6 rounded-xl mx-4 mt-4 shadow-sm">

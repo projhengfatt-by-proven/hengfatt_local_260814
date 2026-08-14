@@ -1,13 +1,7 @@
 // ARIA's native tool definitions — Anthropic Messages API "tools" format.
-// Replaces the old @@COMMAND@@/@@ACTION@@ text-marker convention: instead
-// of instructing the model in prose to emit specially-formatted text the
-// client then regexes out, the model now returns a proper structured
-// tool_use block per the schema below, which the client (ariaClient.ts /
-// AIChatPanel.tsx) consumes directly — no parsing, no malformed-marker risk.
-//
-// Naming follows the namespaced convention agreed for this phase
-// (domain_verb, e.g. lead_create) so future tools stay organized as the
-// list grows, rather than a flat list of unrelated verb-first names.
+// The admin copilot shares the same transport but gets its own tool set so
+// the assistant can describe controlled admin actions without inventing a
+// second backend.
 
 export const ARIA_TOOLS = [
   {
@@ -221,3 +215,107 @@ export const ARIA_TOOLS = [
     },
   },
 ];
+
+export const ADMIN_TOOLS = [
+  {
+    name: "admin_navigate",
+    description:
+      "Navigate within the admin portal to the requested section. Use for simple admin navigation requests such as opening Dashboard, Agents, Listings, Applications, Reports, Settings, or the Copilot screen.",
+    input_schema: {
+      type: "object",
+      properties: {
+        screen: {
+          type: "string",
+          enum: ["dashboard", "agents", "add_agent", "activity", "listings", "applications", "reports", "settings", "copilot"],
+        },
+      },
+      required: ["screen"],
+    },
+  },
+  {
+    name: "admin_set_agent_visibility",
+    description:
+      "Propose changing an agent's public visibility settings. This affects whether the agent can appear on the public Team page or homepage spotlight.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string", description: "UUID of the agent profile" },
+        is_published: { type: "boolean", description: "Whether the agent should appear on the public Team page" },
+        is_featured: { type: "boolean", description: "Whether the agent should be eligible for homepage featuring" },
+      },
+      required: ["agent_id"],
+    },
+  },
+  {
+    name: "admin_set_agent_active",
+    description:
+      "Propose activating or suspending an agent account.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string", description: "UUID of the profile record" },
+        is_active: { type: "boolean", description: "Whether the account should be active" },
+      },
+      required: ["agent_id", "is_active"],
+    },
+  },
+  {
+    name: "admin_resend_agent_invite",
+    description:
+      "Propose resending an invite or password recovery email to an agent.",
+    input_schema: {
+      type: "object",
+      properties: {
+        email: { type: "string", description: "Agent email address" },
+      },
+      required: ["email"],
+    },
+  },
+  {
+    name: "admin_set_listing_status",
+    description:
+      "Propose changing a listing between active and draft. This directly affects public visibility on the site.",
+    input_schema: {
+      type: "object",
+      properties: {
+        listing_id: { type: "string", description: "UUID of the property/listing" },
+        status: { type: "string", enum: ["active", "draft"] },
+      },
+      required: ["listing_id", "status"],
+    },
+  },
+  {
+    name: "admin_set_listing_featured",
+    description:
+      "Propose changing whether a listing is featured on public pages.",
+    input_schema: {
+      type: "object",
+      properties: {
+        listing_id: { type: "string", description: "UUID of the property/listing" },
+        featured: { type: "boolean", description: "Whether the listing should be featured" },
+      },
+      required: ["listing_id", "featured"],
+    },
+  },
+  {
+    name: "admin_review_application",
+    description:
+      "Propose a status update for an agent application, optionally with admin notes.",
+    input_schema: {
+      type: "object",
+      properties: {
+        application_id: { type: "string", description: "UUID of the application" },
+        status: {
+          type: "string",
+          enum: ["pending", "reviewing", "interview", "approved", "declined"],
+        },
+        admin_notes: { type: "string", description: "Optional admin note to store with the review" },
+      },
+      required: ["application_id", "status"],
+    },
+  },
+];
+
+export function getToolsForAssistantRole(role: "agent" | "admin") {
+  return role === "admin" ? ADMIN_TOOLS : ARIA_TOOLS;
+}

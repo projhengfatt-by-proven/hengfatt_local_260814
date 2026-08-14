@@ -1,12 +1,52 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { ARIA_STATIC_SYSTEM_PROMPT } from "./prompt.ts";
-import { ARIA_TOOLS } from "./tools.ts";
+import { getSystemPrompt } from "./prompt.ts";
+import { getToolsForAssistantRole } from "./tools.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+type AssistantRole = "agent" | "admin";
+
+function formatAdminContext(context: Record<string, any>) {
+  const counts = context.counts ?? {};
+  const headline = context.headline ?? {};
+  const pendingInvites = Array.isArray(context.pendingInvites) ? context.pendingInvites : [];
+  const urgentApplications = Array.isArray(context.urgentApplications) ? context.urgentApplications : [];
+  const draftListings = Array.isArray(context.draftListings) ? context.draftListings : [];
+  const recentActivity = Array.isArray(context.recentActivity) ? context.recentActivity : [];
+
+  return [
+    "ADMIN OVERVIEW",
+    `- Agents: ${headline.agents ?? `${counts.agentsPublished ?? 0}/${counts.agentsTotal ?? 0} published`}`,
+    `- Listings: ${headline.listings ?? `${counts.listingsActive ?? 0}/${counts.listingsTotal ?? 0} active`}`,
+    `- Applications: ${headline.applications ?? `${counts.applicationsPending ?? 0} pending`}`,
+    `- Featured agents: ${counts.agentsFeatured ?? 0}`,
+    `- Featured listings: ${counts.listingsFeatured ?? 0}`,
+    `- Pending invites: ${pendingInvites.length}`,
+    "",
+    "URGENT APPLICATIONS",
+    ...(urgentApplications.length > 0
+      ? urgentApplications.map((item: any) => `- ${item.name} (${item.status}) ${item.agency ? `from ${item.agency}` : ""}`.trim())
+      : ["- None"]),
+    "",
+    "DRAFT LISTINGS",
+    ...(draftListings.length > 0
+      ? draftListings.map((item: any) => `- ${item.title} (${item.views ?? 0} views, featured: ${item.featured ? "yes" : "no"})`)
+      : ["- None"]),
+    "",
+    "RECENT ACTIVITY",
+    ...(recentActivity.length > 0
+      ? recentActivity.map((item: any) => `- ${item.action} on ${item.target ?? item.targetType} at ${item.at}`)
+      : ["- None"]),
+  ].join("\n");
+}
+
+function getAnonKey() {
+  return Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -22,25 +62,44 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify the user (unchanged — soft: proceeds anonymously if this
-    // doesn't resolve, since verify_jwt is false for this function.
-    // Known gap, tracked separately: the client currently authenticates
-    // with the anon key rather than the agent's real session token, so
-    // this rarely resolves for real users today — see BUILD_GUIDE.md.)
+    const body = await req.json();
+    const assistantRole = (body.assistantRole === "admin" ? "admin" : "agent") as AssistantRole;
+    const messages = body.messages ?? [];
+    const assistantContext = body.assistantContext ?? body.agentContext ?? null;
+
     let userId: string | null = null;
-    if (authHeader) {
+    if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.replace("Bearer ", "");
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || supabaseKey;
-      const userClient = createClient(supabaseUrl, anonKey);
+      const userClient = createClient(supabaseUrl, getAnonKey());
       const { data: { user } } = await userClient.auth.getUser(token);
       if (user) userId = user.id;
     }
 
-    const { messages, agentContext } = await req.json();
+    if (assistantRole === "admin") {
+      if (!userId) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-    // Load agent memory if we have a user (unchanged — read-only)
+      const { data: roleRow } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      if (!roleRow) {
+        return new Response(JSON.stringify({ error: "Forbidden — admin only" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     let memoryContext = "";
-    if (userId) {
+    if (assistantRole === "agent" && userId) {
       const { data: memory } = await supabase
         .from("agent_memory")
         .select("key, value")
@@ -52,15 +111,29 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── Dynamic block — rebuilt fresh every request, never cached ───
-    const nowInSingapore = new Date().toLocaleString("en-SG", { timeZone: "Asia/Singapore", weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    const nowInSingapore = new Date().toLocaleString("en-SG", {
+      timeZone: "Asia/Singapore",
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const contextBlock = assistantRole === "admin"
+      ? (assistantContext ? `\n\nADMIN CONTEXT:\n${formatAdminContext(assistantContext)}` : "")
+      : (assistantContext ? `\n\nCURRENT AGENT CONTEXT:\n- Active Listings: ${assistantContext.listingsCount || 0}
+- Open Leads: ${assistantContext.leadsCount || 0}
+- Today's Viewings: ${assistantContext.viewingsTodayCount || 0}
+- Pipeline Value: $${assistantContext.pipelineValue || 0}` : "");
+
     const dynamicBlock =
-      `Current date/time (Asia/Singapore): ${nowInSingapore}. Use this to resolve relative dates like "tomorrow" or "Friday at 3pm" into an exact date before calling viewing_book.` +
-      (agentContext ? `\n\nCURRENT AGENT CONTEXT:
-- Active Listings: ${agentContext.listingsCount || 0}
-- Open Leads: ${agentContext.leadsCount || 0}
-- Today's Viewings: ${agentContext.viewingsTodayCount || 0}
-- Pipeline Value: $${agentContext.pipelineValue || 0}` : "") +
+      `Current date/time (Asia/Singapore): ${nowInSingapore}.` +
+      (assistantRole === "admin"
+        ? " Use this to explain time-sensitive admin work clearly and to describe any operational timing concerns."
+        : " Use this to resolve relative dates like \"tomorrow\" or \"Friday at 3pm\" into an exact date before calling viewing_book.") +
+      contextBlock +
       memoryContext;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -76,7 +149,7 @@ Deno.serve(async (req) => {
         system: [
           {
             type: "text",
-            text: ARIA_STATIC_SYSTEM_PROMPT,
+            text: getSystemPrompt(assistantRole),
             cache_control: { type: "ephemeral" },
           },
           {
@@ -84,7 +157,7 @@ Deno.serve(async (req) => {
             text: dynamicBlock,
           },
         ],
-        tools: ARIA_TOOLS,
+        tools: getToolsForAssistantRole(assistantRole),
         messages,
         stream: true,
       }),
@@ -117,19 +190,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Pure pass-through — this function never buffers, parses, or writes
-    // to the database. The raw Anthropic SSE stream is piped straight to
-    // the browser, which parses the native event shape directly
-    // (see src/lib/ariaClient.ts).
-    //
-    // Cache-Control/X-Accel-Buffering/Connection below are deliberate, not
-    // decorative: without them, an intermediate proxy layer in front of
-    // this edge function can buffer the whole response instead of
-    // forwarding it chunk-by-chunk — the invocation still logs a clean 200
-    // server-side, but the browser either gets nothing until a buffer
-    // flush/timeout or the connection gets cut before that happens. Added
-    // 2026-08-11 chasing exactly that symptom (server logs 200, client
-    // sees "connection closed unexpectedly" with no data ever arriving).
     return new Response(response.body, {
       headers: {
         ...corsHeaders,

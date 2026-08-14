@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -14,9 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, UserPlus, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Pencil, Send, Loader2, Search, UserPlus } from "lucide-react";
+import { resendAgentInvite, setAgentActive, setAgentVisibility } from "@/components/admin/adminOperations";
 
 type AgentRow = {
   id: string;
@@ -25,58 +27,42 @@ type AgentRow = {
   agent_type: string | null;
   is_published: boolean;
   is_featured: boolean;
-  specialisations: string[];
+  display_order: number | null;
   profiles: {
     full_name: string | null;
     avatar_url: string | null;
     email: string;
+    phone: string | null;
+    is_active: boolean | null;
     password_set_at: string | null;
   } | null;
 };
 
-async function logActivity(
-  action: string,
-  targetType: string,
-  targetId: string,
-  targetName: string | null,
-  changes: Record<string, unknown> | null
-) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
-  await supabase.from("admin_activity_log").insert({
-    admin_id: user.id,
-    action,
-    target_type: targetType,
-    target_id: targetId,
-    target_name: targetName,
-    changes: changes as any,
-  });
-}
+type AgentFilter = "all" | "published" | "featured" | "pending-invite" | "internal" | "external";
 
 export default function AgentsListPage() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [resending, setResending] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<AgentFilter>("all");
 
   async function fetchAgents() {
     const { data, error } = await supabase
       .from("agent_profiles")
-      .select("id, cea_no, position, agent_type, is_published, is_featured, specialisations, profiles(full_name, avatar_url, email, password_set_at)")
+      .select("id, cea_no, position, agent_type, is_published, is_featured, display_order, profiles(full_name, avatar_url, email, phone, is_active, password_set_at)")
       .order("display_order", { ascending: true });
 
     if (error) {
       toast({ title: "Error loading agents", description: error.message, variant: "destructive" });
     } else {
       setAgents(
-        (data ?? []).map((row: any) => ({
+        (data ?? []).map((row) => ({
           ...row,
           is_published: row.is_published ?? false,
           is_featured: row.is_featured ?? false,
-          specialisations: row.specialisations ?? [],
           profiles: row.profiles,
-        }))
+        })) as AgentRow[]
       );
     }
     setLoading(false);
@@ -86,61 +72,69 @@ export default function AgentsListPage() {
     fetchAgents();
   }, []);
 
-  async function handleToggle(agent: AgentRow, field: "is_published" | "is_featured", value: boolean) {
-    // Only internal agents can be featured on homepage
-    if (field === "is_featured" && value && agent.agent_type !== "internal") {
-      toast({ title: "Only internal agents can be featured on the homepage", variant: "destructive" });
+  const filteredAgents = useMemo(() => {
+    return agents.filter((agent) => {
+      const status = agent.profiles?.password_set_at ? "active" : "pending-invite";
+      if (filter !== "all") {
+        if (filter === "published" && !agent.is_published) return false;
+        if (filter === "featured" && !agent.is_featured) return false;
+        if (filter === "internal" && agent.agent_type !== "internal") return false;
+        if (filter === "external" && agent.agent_type !== "external") return false;
+        if (filter === "pending-invite" && status !== "pending-invite") return false;
+      }
+
+      if (!search.trim()) return true;
+      const haystack = [
+        agent.profiles?.full_name,
+        agent.profiles?.email,
+        agent.position,
+        agent.cea_no,
+        agent.agent_type,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(search.toLowerCase());
+    });
+  }, [agents, filter, search]);
+
+  const stats = useMemo(() => ({
+    total: agents.length,
+    published: agents.filter((agent) => agent.is_published).length,
+    featured: agents.filter((agent) => agent.is_featured).length,
+    pendingInvite: agents.filter((agent) => !agent.profiles?.password_set_at).length,
+  }), [agents]);
+
+  async function handleVisibility(agent: AgentRow, field: "is_published" | "is_featured", value: boolean) {
+    const result = await setAgentVisibility(agent.id, { [field]: value });
+    if (result.error) {
+      toast({ title: "Update failed", description: result.error, variant: "destructive" });
       return;
     }
+    setAgents((prev) => prev.map((item) => (item.id === agent.id ? { ...item, [field]: value } : item)));
+    toast({ title: "Agent visibility updated" });
+  }
 
-    const { error } = await supabase
-      .from("agent_profiles")
-      .update({ [field]: value })
-      .eq("id", agent.id);
-
-    if (error) {
-      toast({ title: "Update failed", description: error.message, variant: "destructive" });
+  async function handleActive(agent: AgentRow, value: boolean) {
+    const result = await setAgentActive(agent.id, value);
+    if (result.error) {
+      toast({ title: "Update failed", description: result.error, variant: "destructive" });
       return;
     }
-
-    const label = field === "is_published" ? "Team page visibility" : "Homepage visibility";
-    await logActivity(
-      `${label} ${value ? "enabled" : "disabled"}`,
-      "agent",
-      agent.id,
-      agent.profiles?.full_name ?? null,
-      { [field]: value }
-    );
-
-    setAgents((prev) =>
-      prev.map((a) => (a.id === agent.id ? { ...a, [field]: value } : a))
-    );
-    toast({ title: `${label} ${value ? "enabled" : "disabled"}` });
+    setAgents((prev) => prev.map((item) => (item.id === agent.id ? { ...item, profiles: item.profiles ? { ...item.profiles, is_active: value } : item.profiles } : item)));
+    toast({ title: value ? "Agent reactivated" : "Agent suspended" });
   }
 
   async function handleResendInvite(agent: AgentRow) {
     if (!agent.profiles?.email) return;
     setResending(agent.id);
-    try {
-      const { data, error } = await supabase.functions.invoke("resend-agent-invite", {
-        body: { email: agent.profiles.email },
-      });
-      if (error) {
-        // supabase.functions.invoke wraps non-2xx as FunctionsHttpError
-        const errMsg = typeof data === "object" && data?.error ? data.error : error.message;
-        throw new Error(errMsg);
-      }
-      // Check for application-level error in response body
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-      toast({ title: "✅ Invite resent successfully", description: `Email sent to ${agent.profiles.email}` });
-    } catch (err: any) {
-      console.error("Resend invite error:", err);
-      toast({ title: "Failed to resend invite", description: err.message ?? "Unknown error", variant: "destructive" });
-    } finally {
-      setResending(null);
+    const result = await resendAgentInvite(agent.profiles.email);
+    setResending(null);
+    if (result.error) {
+      toast({ title: "Failed to resend invite", description: result.error, variant: "destructive" });
+      return;
     }
+    toast({ title: "Invite resent", description: `Email sent to ${agent.profiles.email}` });
   }
 
   const initials = (name: string | null) =>
@@ -152,20 +146,61 @@ export default function AgentsListPage() {
       .slice(0, 2);
 
   return (
-    <div className="p-6 sm:p-8 max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-heading text-2xl sm:text-3xl font-bold text-foreground">
-          Agents
-        </h1>
-        <Link to="/admin/agents/new">
-          <Button className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold">
-            <UserPlus className="w-4 h-4 mr-2" />
+    <div className="p-6 sm:p-8 max-w-7xl space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Badge className="bg-gold/10 text-gold border-gold/30 font-body">Agent visibility</Badge>
+          </div>
+          <h1 className="mt-3 font-heading text-3xl font-bold text-foreground">Agents</h1>
+          <p className="mt-2 font-body text-muted-foreground">
+            Search by name or email, control public visibility, and resend invites when an agent has not set a password yet.
+          </p>
+        </div>
+
+        <Button asChild className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold">
+          <Link to="/admin/agents/new">
+            <UserPlus className="mr-2 h-4 w-4" />
             Add Agent
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
-      <div className="bg-card rounded-xl shadow-card overflow-hidden">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total agents" value={stats.total} />
+        <StatCard label="Published" value={stats.published} />
+        <StatCard label="Featured" value={stats.featured} />
+        <StatCard label="Pending invite" value={stats.pendingInvite} />
+      </div>
+
+      <div className="rounded-2xl border border-border/70 bg-card p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search agents by name, email, position, or CEA number"
+              className="pl-9"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(["all", "published", "featured", "pending-invite", "internal", "external"] as AgentFilter[]).map((item) => (
+              <button
+                key={item}
+                onClick={() => setFilter(item)}
+                className={`rounded-full px-3 py-1.5 text-xs font-body font-medium capitalize transition-colors ${
+                  filter === item ? "bg-gold text-primary" : "border border-border text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {item.replace("-", " ")}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border/70 overflow-hidden bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -175,6 +210,7 @@ export default function AgentsListPage() {
               <TableHead className="font-body hidden lg:table-cell">CEA No.</TableHead>
               <TableHead className="font-body text-center">Team Page</TableHead>
               <TableHead className="font-body text-center">Homepage</TableHead>
+              <TableHead className="font-body text-center">Account</TableHead>
               <TableHead className="font-body text-center">Edit</TableHead>
               <TableHead className="font-body text-center">Invite</TableHead>
             </TableRow>
@@ -183,25 +219,25 @@ export default function AgentsListPage() {
             {loading &&
               Array.from({ length: 4 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={7}>
+                  <TableCell colSpan={9}>
                     <Skeleton className="h-10 w-full" />
                   </TableCell>
                 </TableRow>
               ))}
 
-            {!loading && agents.length === 0 && (
+            {!loading && filteredAgents.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground font-body py-12">
-                  No agents found. Invite your first agent to get started.
+                <TableCell colSpan={9} className="py-12 text-center font-body text-muted-foreground">
+                  No agents match the current filters.
                 </TableCell>
               </TableRow>
             )}
 
-            {agents.map((agent) => (
+            {filteredAgents.map((agent) => (
               <TableRow key={agent.id}>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <Avatar className="w-9 h-9">
+                    <Avatar className="h-9 w-9">
                       <AvatarImage src={agent.profiles?.avatar_url ?? undefined} />
                       <AvatarFallback className="bg-gold/10 text-gold text-xs font-semibold">
                         {initials(agent.profiles?.full_name ?? null)}
@@ -218,14 +254,7 @@ export default function AgentsListPage() {
                   </div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
-                  <Badge
-                    variant={agent.agent_type === "internal" ? "default" : "outline"}
-                    className={
-                      agent.agent_type === "internal"
-                        ? "bg-gold/10 text-gold border-gold/30 font-body"
-                        : "font-body"
-                    }
-                  >
+                  <Badge variant={agent.agent_type === "internal" ? "default" : "outline"} className={agent.agent_type === "internal" ? "bg-gold/10 text-gold border-gold/30 font-body" : "font-body"}>
                     {agent.agent_type === "internal" ? "Internal" : "External"}
                   </Badge>
                 </TableCell>
@@ -238,25 +267,31 @@ export default function AgentsListPage() {
                 <TableCell className="text-center">
                   <Switch
                     checked={agent.is_published}
-                    onCheckedChange={(val) => handleToggle(agent, "is_published", val)}
+                    onCheckedChange={(val) => void handleVisibility(agent, "is_published", val)}
                   />
                 </TableCell>
                 <TableCell className="text-center">
                   <Switch
                     checked={agent.is_featured}
-                    onCheckedChange={(val) => handleToggle(agent, "is_featured", val)}
+                    onCheckedChange={(val) => void handleVisibility(agent, "is_featured", val)}
                     disabled={agent.agent_type !== "internal"}
+                  />
+                </TableCell>
+                <TableCell className="text-center">
+                  <Switch
+                    checked={agent.profiles?.is_active ?? false}
+                    onCheckedChange={(val) => void handleActive(agent, val)}
                   />
                 </TableCell>
                 <TableCell className="text-center">
                   <Link to={`/admin/agents/${agent.id}/edit`}>
                     <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-gold">
-                      <Pencil className="w-4 h-4" />
+                      <Pencil className="h-4 w-4" />
                     </Button>
                   </Link>
                 </TableCell>
                 <TableCell className="text-center">
-                  {!agent.profiles?.password_set_at && (
+                  {!agent.profiles?.password_set_at ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -264,17 +299,19 @@ export default function AgentsListPage() {
                           size="icon"
                           className="text-muted-foreground hover:text-gold"
                           disabled={resending === agent.id}
-                          onClick={() => handleResendInvite(agent)}
+                          onClick={() => void handleResendInvite(agent)}
                         >
                           {resending === agent.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <Send className="w-4 h-4" />
+                            <Send className="h-4 w-4" />
                           )}
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Resend invite email</TooltipContent>
                     </Tooltip>
+                  ) : (
+                    <span className="font-body text-xs text-muted-foreground">Sent</span>
                   )}
                 </TableCell>
               </TableRow>
@@ -282,6 +319,15 @@ export default function AgentsListPage() {
           </TableBody>
         </Table>
       </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-card p-4">
+      <p className="font-body text-sm text-muted-foreground">{label}</p>
+      <p className="mt-2 font-heading text-3xl text-foreground">{value}</p>
     </div>
   );
 }

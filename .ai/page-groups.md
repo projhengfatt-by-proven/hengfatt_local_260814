@@ -74,6 +74,7 @@ Pages and activities:
 | Admin Area | Purpose | Remarks |
 |---|---|---|
 | Dashboard | Admin landing page. | Overview / landing panel. |
+| Copilot | Admin AI helper. | Read-first assistant with confirmation-gated writes. |
 | Agents | Manage all agents. | Main admin area for people management. |
 | Add New Agent | Fill in agent form and create the account. | Should create the agent and send the invite. |
 | Agent List | View all agents. | Used to decide who appears on the Team page and Home page, edit agent information, and resend invites. |
@@ -81,15 +82,15 @@ Pages and activities:
 | Listings | Admin view of all listings. | Used to review and manage public listings. |
 | Listing List | Browse listings as an admin. | Should support filtering by `All`, `Active`, and `Draft`. |
 | Featured Selection | Decide which listings are featured publicly. | Controls public-page promotion. |
-| Applications | Review agent applications. | Present as a route, likely still incomplete. |
-| Reports | Admin reports and summaries. | Present as a route, likely still incomplete. |
-| Settings | Admin configuration. | Present as a route, likely still incomplete. |
+| Applications | Review agent applications. | Queue view with status changes, admin notes, and review decisions. |
+| Reports | Admin reports and summaries. | Operational report with visibility ratios and backlog counts. |
+| Settings | Admin configuration. | Reference page for visibility rules, onboarding rules, and source-of-truth notes. |
 
 Admin remarks:
-- `Dashboard`, `Agents`, `Add New Agent`, `Agent List`, `Activity Log`, and `Listings` are the main built admin sections today.
-- `Applications`, `Reports`, and `Settings` exist as routes but are still placeholder-style work.
+- `Dashboard`, `Copilot`, `Agents`, `Add New Agent`, `Agent List`, `Activity Log`, `Listings`, `Applications`, `Reports`, and `Settings` are now the main admin sections.
 - The agent list is not just informational; it also affects public visibility on the Team page and Home page.
 - The add-agent flow should stay aligned with the invite pipeline so account creation and invitation remain one operation.
+- The Admin Copilot is intentionally read-first: write actions should always require explicit confirmation before they run.
 
 ## 4. Quick Incomplete Checklist
 
@@ -100,4 +101,3 @@ This is the short version of what still needs attention:
 - `/portal/agent/setup` is referenced but not built.
 - Admin Applications, Reports, and Settings are not yet full implementations.
 - We should keep documenting which pages are source-of-truth versus placeholder as the build grows.
-
