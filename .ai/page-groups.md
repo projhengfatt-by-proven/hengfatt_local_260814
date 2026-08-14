@@ -82,7 +82,7 @@ Pages and activities:
 | Listings | Admin view of all listings. | Used to review and manage public listings. |
 | Listing List | Browse listings as an admin. | Should support filtering by `All`, `Active`, and `Draft`. |
 | Featured Selection | Decide which listings are featured publicly. | Controls public-page promotion. |
-| Market Insights | Manage public insight cards, detail copy, and links. | Admin can create, edit, publish, and unpublish insight entries, including the card excerpt and the full article body. |
+| Market Insights | Manage public insight cards, detail copy, and links. | Admin starts with the list view, opens an insight for detail, and only opens the form when creating or editing. |
 | Applications | Review agent applications. | Queue view with status changes, admin notes, and review decisions. |
 | Reports | Admin reports and summaries. | Operational report with visibility ratios and backlog counts. |
 | Settings | Admin configuration. | Reference page for visibility rules, onboarding rules, and source-of-truth notes. |
@@ -91,7 +91,7 @@ Admin remarks:
 - `Dashboard`, `Copilot`, `Agents`, `Agent List`, `Activity Log`, `Listings`, `Market Insights`, `Applications`, `Reports`, and `Settings` are now the main admin sections.
 - The agent list is not just informational; it also affects public visibility on the Team page and Home page.
 - The add-agent flow should stay aligned with the invite pipeline so account creation and invitation remain one operation.
-- Market insights now behave like real articles: the admin manages the card excerpt, body copy, cover image, and publish state from one place.
+- Market insights now behave like real articles: the admin starts from the list, can open a detail page, and manages the card excerpt, body copy, cover image, and publish state from the form.
 - The Admin Copilot is intentionally read-first: write actions should always require explicit confirmation before they run.
 
 ## 4. Quick Incomplete Checklist

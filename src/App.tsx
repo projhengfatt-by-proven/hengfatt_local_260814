@@ -22,6 +22,7 @@ import ActivityLogPage from "./pages/admin/ActivityLogPage";
 import AdminListingsPage from "./pages/admin/AdminListingsPage";
 import ApplicationsPage from "./pages/admin/ApplicationsPage";
 import MarketInsightsPage from "./pages/admin/MarketInsightsPage";
+import AdminInsightDetailPage from "./pages/admin/AdminInsightDetailPage";
 import ReportsPage from "./pages/admin/ReportsPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import InsightsPage from "./pages/InsightsPage";
@@ -98,6 +99,7 @@ const App = () => (
             <Route path="listings/new" element={<NewListingPage />} />
             <Route path="properties" element={<AdminListingsPage />} />
             <Route path="insights" element={<MarketInsightsPage />} />
+            <Route path="insights/:id" element={<AdminInsightDetailPage />} />
             <Route path="applications" element={<ApplicationsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />

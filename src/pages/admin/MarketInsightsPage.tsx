@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import {
   buildInsightHref,
@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarDays, Edit3, ExternalLink, Plus, Save } from "lucide-react";
+import { CalendarDays, Edit3, Eye, FileText, Filter, Plus, Save, Search, TrendingUp } from "lucide-react";
 
 const SINGAPORE_LUXURY_MARKET_TEMPLATE: MarketInsightForm = {
   title: "Singapore Luxury Property Market 2026: Why the Prime Market Is Regaining Momentum",
@@ -53,11 +53,18 @@ const SINGAPORE_LUXURY_MARKET_TEMPLATE: MarketInsightForm = {
   published: true,
 };
 
+type InsightFilter = "all" | "published" | "draft";
+
 export default function MarketInsightsPage() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<MarketInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<InsightFilter>("all");
   const [form, setForm] = useState<MarketInsightForm>(emptyMarketInsightForm);
 
   useEffect(() => {
@@ -78,11 +85,57 @@ export default function MarketInsightsPage() {
     };
   }, []);
 
-  const stats = useMemo(() => ({
-    total: items.length,
-    published: items.filter((item) => item.published_at).length,
-    draft: items.filter((item) => !item.published_at).length,
-  }), [items]);
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (!editId || loading) return;
+    const insight = items.find((item) => item.id === editId);
+    if (insight) {
+      startEdit(insight);
+    }
+  }, [items, loading, searchParams]);
+
+  const stats = useMemo(
+    () => ({
+      total: items.length,
+      published: items.filter((item) => item.published_at).length,
+      draft: items.filter((item) => !item.published_at).length,
+    }),
+    [items]
+  );
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      if (filter === "published" && !item.published_at) return false;
+      if (filter === "draft" && item.published_at) return false;
+
+      if (!search.trim()) return true;
+      const haystack = [
+        item.category,
+        item.title,
+        item.description,
+        item.period,
+        item.read_time,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(search.toLowerCase());
+    });
+  }, [filter, items, search]);
+
+  function resetForm() {
+    setEditingId(null);
+    setForm(emptyMarketInsightForm);
+    setShowForm(false);
+    setSearchParams({});
+  }
+
+  function startCreate(template = false) {
+    setEditingId(null);
+    setForm(template ? SINGAPORE_LUXURY_MARKET_TEMPLATE : emptyMarketInsightForm);
+    setShowForm(true);
+    setSearchParams({});
+  }
 
   function startEdit(item: MarketInsight) {
     setEditingId(item.id);
@@ -97,16 +150,12 @@ export default function MarketInsightsPage() {
       read_time: item.read_time ?? "7 min read",
       published: !!item.published_at,
     });
+    setShowForm(true);
+    setSearchParams({ edit: item.id });
   }
 
-  function loadTemplate() {
-    setEditingId(null);
-    setForm(SINGAPORE_LUXURY_MARKET_TEMPLATE);
-  }
-
-  function resetForm() {
-    setEditingId(null);
-    setForm(emptyMarketInsightForm);
+  function openInsight(item: MarketInsight) {
+    navigate(`/admin/insights/${item.id}`);
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -134,7 +183,11 @@ export default function MarketInsightsPage() {
       setItems((prev) => [createdItem, ...prev]);
       toast({ title: "Market insight created" });
     }
-    resetForm();
+
+    setEditingId(null);
+    setShowForm(false);
+    setForm(emptyMarketInsightForm);
+    setSearchParams({});
   }
 
   async function togglePublished(item: MarketInsight, published: boolean) {
@@ -166,17 +219,19 @@ export default function MarketInsightsPage() {
           <Badge className="bg-gold/10 text-gold border-gold/30 font-body">Market insight control</Badge>
           <h1 className="mt-3 font-heading text-3xl font-bold text-foreground">Market Insights</h1>
           <p className="mt-2 max-w-2xl font-body text-muted-foreground">
-            Create the public insight cards, edit the content, and decide what appears on the website.
+            Browse all created insights first, filter them, open one for detail, or create a new one from the same page.
           </p>
         </div>
 
-        <Button onClick={resetForm} className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold">
-          <Plus className="mr-2 h-4 w-4" />
-          New Insight
-        </Button>
-        <Button onClick={loadTemplate} variant="outline" className="font-body font-semibold">
-          Load Singapore Example
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button onClick={() => startCreate()} className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Insight
+          </Button>
+          <Button onClick={() => startCreate(true)} variant="outline" className="font-body font-semibold">
+            Load Singapore Example
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -185,14 +240,41 @@ export default function MarketInsightsPage() {
         <StatCard label="Draft" value={stats.draft} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+      <div className="rounded-2xl border border-border/70 bg-card p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search insights by title, category, period, or read time"
+              className="pl-9"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(["all", "published", "draft"] as InsightFilter[]).map((item) => (
+              <button
+                key={item}
+                onClick={() => setFilter(item)}
+                className={`rounded-full px-3 py-1.5 text-xs font-body font-medium capitalize transition-colors ${
+                  filter === item ? "bg-gold text-primary" : "border border-border text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {showForm && (
         <Card className="border-border/70">
           <CardHeader>
             <CardTitle className="font-heading text-xl">
               {editingId ? "Edit market insight" : "Create market insight"}
             </CardTitle>
             <CardDescription className="font-body">
-              Use a public report or article link for the public site. This keeps the same content source for both the homepage preview and the full insights page.
+              Fill in the card summary and the full article body here. Saving will update the public insights page.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -242,82 +324,78 @@ export default function MarketInsightsPage() {
                   {editingId ? "Update Insight" : "Create Insight"}
                 </Button>
                 <Button type="button" variant="outline" onClick={resetForm}>
-                  Reset
+                  Cancel
                 </Button>
               </div>
             </form>
           </CardContent>
         </Card>
+      )}
 
-        <Card className="border-border/70">
-          <CardHeader>
-            <CardTitle className="font-heading text-xl">Insight list</CardTitle>
-            <CardDescription className="font-body">
-              Edit the existing cards, switch published status, or open the public page.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {loading ? (
-              Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-28 rounded-xl" />)
-            ) : items.length ? (
-              items.map((item) => (
-                <div key={item.id} className="rounded-2xl border border-border/70 p-4 space-y-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary" className="font-body">
-                          {item.category ?? "MARKET OUTLOOK"}
-                        </Badge>
-                        <p className="font-body font-semibold text-foreground">{item.title}</p>
-                        <Badge variant="outline" className="font-body capitalize">
-                          {item.published_at ? "Published" : "Draft"}
-                        </Badge>
-                      </div>
-                      <p className="font-body text-sm text-muted-foreground line-clamp-2">
-                        {item.description || "No description yet."}
-                      </p>
-                      <p className="font-body text-xs text-muted-foreground">
-                        {item.read_time ?? "7 min read"}
-                      </p>
-                      <p className="inline-flex items-center gap-1 font-body text-xs text-muted-foreground">
-                        <CalendarDays className="h-3.5 w-3.5" />
-                        {formatInsightDate(item.published_at)}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" size="sm" onClick={() => startEdit(item)}>
-                        <Edit3 className="mr-2 h-4 w-4" />
-                        Edit
-                      </Button>
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link to={buildInsightHref(item.id, item.title)} target="_blank">
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Open
-                        </Link>
-                      </Button>
-                    </div>
+      <Card className="border-border/70">
+        <CardHeader>
+          <CardTitle className="font-heading text-xl">Insight list</CardTitle>
+          <CardDescription className="font-body">
+            Click an insight to open its detail page. Use Edit to switch the same form into edit mode.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loading ? (
+            Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-28 rounded-xl" />)
+          ) : filteredItems.length ? (
+            filteredItems.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-border/70 p-4 space-y-4">
+                <button
+                  type="button"
+                  onClick={() => openInsight(item)}
+                  className="w-full text-left space-y-2 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary" className="font-body">
+                      {item.category ?? "MARKET OUTLOOK"}
+                    </Badge>
+                    <Badge variant="outline" className="font-body capitalize">
+                      {item.published_at ? "Published" : "Draft"}
+                    </Badge>
+                    <span className="inline-flex items-center gap-1 font-body text-xs text-muted-foreground">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      {formatInsightDate(item.published_at)}
+                    </span>
                   </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-body font-semibold text-foreground">{item.title}</p>
+                    {item.read_time && <span className="font-body text-xs text-muted-foreground">{item.read_time}</span>}
+                  </div>
+                  <p className="font-body text-sm text-muted-foreground line-clamp-2">
+                    {item.description || "No description yet."}
+                  </p>
+                </button>
 
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2 rounded-full border border-border/70 px-3 py-1.5">
-                      <span className="font-body text-xs text-muted-foreground">Published</span>
-                      <Switch
-                        checked={!!item.published_at}
-                        onCheckedChange={(checked) => void togglePublished(item, checked)}
-                        disabled={saving}
-                      />
-                    </div>
-                  </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => startEdit(item)}>
+                    <Edit3 className="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
+                  <Button variant="ghost" size="sm" asChild>
+                    <a href={buildInsightHref(item.id, item.title)} target="_blank" rel="noreferrer">
+                      <Eye className="mr-2 h-4 w-4" />
+                      Public page
+                    </a>
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => togglePublished(item, !item.published_at)} disabled={saving}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    {item.published_at ? "Move to draft" : "Publish"}
+                  </Button>
                 </div>
-              ))
-            ) : (
-              <div className="rounded-xl border border-dashed border-border/70 p-8 text-center">
-                <p className="font-body text-sm text-muted-foreground">No market insights yet. Create the first one on the left.</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            ))
+          ) : (
+            <div className="rounded-xl border border-dashed border-border/70 p-8 text-center">
+              <p className="font-body text-sm text-muted-foreground">No market insights match the current filters.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
