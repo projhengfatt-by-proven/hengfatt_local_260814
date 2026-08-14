@@ -1509,32 +1509,41 @@ export type Database = {
       }
       market_reports: {
         Row: {
+          body: string | null
           cover_url: string | null
           created_at: string | null
           description: string | null
-          file_url: string
+          file_url: string | null
           id: string
+          category: string | null
           period: string | null
+          read_time: string | null
           published_at: string | null
           title: string
         }
         Insert: {
+          body?: string | null
           cover_url?: string | null
           created_at?: string | null
           description?: string | null
-          file_url: string
+          file_url?: string | null
           id?: string
+          category?: string | null
           period?: string | null
+          read_time?: string | null
           published_at?: string | null
           title: string
         }
         Update: {
+          body?: string | null
           cover_url?: string | null
           created_at?: string | null
           description?: string | null
-          file_url?: string
+          file_url?: string | null
           id?: string
+          category?: string | null
           period?: string | null
+          read_time?: string | null
           published_at?: string | null
           title?: string
         }

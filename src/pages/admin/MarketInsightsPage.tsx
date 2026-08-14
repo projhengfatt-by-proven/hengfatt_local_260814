@@ -20,6 +20,39 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { CalendarDays, Edit3, ExternalLink, Plus, Save } from "lucide-react";
 
+const SINGAPORE_LUXURY_MARKET_TEMPLATE: MarketInsightForm = {
+  title: "Singapore Luxury Property Market 2026: Why the Prime Market Is Regaining Momentum",
+  category: "MARKET OUTLOOK",
+  description:
+    "Singapore's luxury residential market is showing renewed strength in 2026, with prime Core Central Region properties outperforming the wider private housing market.",
+  body:
+    "Singapore's luxury residential market is entering a more interesting phase in 2026.\n\n" +
+    "The headline Singapore property market remains relatively moderate, but the numbers become considerably more interesting when the market is separated by location and property type.\n\n" +
+    "In Q2 2026, Singapore's overall private residential price index increased 0.5% quarter-on-quarter, following a 0.9% increase in Q1. That brought price growth for the first half of 2026 to 1.4%.\n\n" +
+    "But the prime market performed considerably better.\n\n" +
+    "Non-landed properties in the Core Central Region (CCR) increased 1.8% in Q2, compared with declines of 1.2% in the RCR and 0.1% in the OCR.\n\n" +
+    "That divergence is important.\n\n" +
+    "Prime property is outperforming\n\n" +
+    "The CCR has effectively moved from being one of the weaker segments after the 2023 cooling measures to becoming one of the more resilient parts of the market.\n\n" +
+    "According to CBRE, CCR prices rose 1.8% in Q2, supported by firm pricing at existing projects and buyers recognising the narrowing price gap between prime and non-prime markets.\n\n" +
+    "For high-net-worth buyers, this creates an interesting environment:\n\n" +
+    "- prime locations remain scarce\n" +
+    "- the price gap with some RCR/OCR properties has narrowed\n" +
+    "- new supply is still relatively limited in the luxury segment\n" +
+    "- Singapore continues to attract international wealth\n" +
+    "- the highest-quality properties increasingly trade according to scarcity rather than broad market sentiment\n\n" +
+    "What does this mean for buyers?\n\n" +
+    'The luxury market should not be viewed simply as "Singapore property prices are rising." Instead, the market is becoming increasingly selective.\n\n' +
+    "A well-located freehold residence in District 9 or 10 with excellent views, large floor area, privacy and strong developer pedigree can behave very differently from a generic condominium elsewhere.\n\n" +
+    "Our view: 2026 is increasingly a market where quality matters more than market direction.\n\n" +
+    "There will be photos for that insight which to be created in a card list view and detail view.",
+  file_url: "",
+  cover_url: "",
+  period: "14 Aug 2026",
+  read_time: "7 min read",
+  published: true,
+};
+
 export default function MarketInsightsPage() {
   const [items, setItems] = useState<MarketInsight[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,12 +88,20 @@ export default function MarketInsightsPage() {
     setEditingId(item.id);
     setForm({
       title: item.title,
+      category: item.category ?? "MARKET OUTLOOK",
       description: item.description ?? "",
-      file_url: item.file_url,
+      body: item.body ?? "",
+      file_url: item.file_url ?? "",
       cover_url: item.cover_url ?? "",
       period: item.period ?? "",
+      read_time: item.read_time ?? "7 min read",
       published: !!item.published_at,
     });
+  }
+
+  function loadTemplate() {
+    setEditingId(null);
+    setForm(SINGAPORE_LUXURY_MARKET_TEMPLATE);
   }
 
   function resetForm() {
@@ -70,8 +111,8 @@ export default function MarketInsightsPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!form.title.trim() || !form.file_url.trim()) {
-      toast({ title: "Title and report link are required", variant: "destructive" });
+    if (!form.title.trim() || !form.body.trim()) {
+      toast({ title: "Title and body are required", variant: "destructive" });
       return;
     }
 
@@ -100,10 +141,13 @@ export default function MarketInsightsPage() {
     setSaving(true);
     const { error } = await saveMarketInsight(item.id, {
       title: item.title,
+      category: item.category ?? "MARKET OUTLOOK",
       description: item.description ?? "",
-      file_url: item.file_url,
+      body: item.body ?? "",
+      file_url: item.file_url ?? "",
       cover_url: item.cover_url ?? "",
       period: item.period ?? "",
+      read_time: item.read_time ?? "7 min read",
       published,
     });
     setSaving(false);
@@ -130,6 +174,9 @@ export default function MarketInsightsPage() {
           <Plus className="mr-2 h-4 w-4" />
           New Insight
         </Button>
+        <Button onClick={loadTemplate} variant="outline" className="font-body font-semibold">
+          Load Singapore Example
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -151,24 +198,36 @@ export default function MarketInsightsPage() {
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Input id="category" value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} placeholder="MARKET OUTLOOK" />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="title">Title</Label>
                 <Input id="title" value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Singapore Property Market Outlook 2026" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea id="description" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Short summary for the public site." rows={4} />
+                <Label htmlFor="description">Card excerpt</Label>
+                <Textarea id="description" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Short summary for the public site card." rows={4} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="body">Detail page content</Label>
+                <Textarea id="body" value={form.body} onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))} placeholder="Full article content for the detail page." rows={12} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="period">Period</Label>
                 <Input id="period" value={form.period} onChange={(e) => setForm((prev) => ({ ...prev, period: e.target.value }))} placeholder="Q3 2026" />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="read_time">Read time</Label>
+                <Input id="read_time" value={form.read_time} onChange={(e) => setForm((prev) => ({ ...prev, read_time: e.target.value }))} placeholder="7 min read" />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="cover_url">Cover image URL</Label>
                 <Input id="cover_url" value={form.cover_url} onChange={(e) => setForm((prev) => ({ ...prev, cover_url: e.target.value }))} placeholder="https://..." />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="file_url">Report link / file URL</Label>
-                <Input id="file_url" value={form.file_url} onChange={(e) => setForm((prev) => ({ ...prev, file_url: e.target.value }))} placeholder="https://... or document link" />
+                <Label htmlFor="file_url">Source link or PDF URL optional</Label>
+                <Input id="file_url" value={form.file_url} onChange={(e) => setForm((prev) => ({ ...prev, file_url: e.target.value }))} placeholder="https://... or leave blank" />
               </div>
               <div className="flex items-center justify-between rounded-xl border border-border/70 px-4 py-3">
                 <div>
@@ -206,6 +265,9 @@ export default function MarketInsightsPage() {
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary" className="font-body">
+                          {item.category ?? "MARKET OUTLOOK"}
+                        </Badge>
                         <p className="font-body font-semibold text-foreground">{item.title}</p>
                         <Badge variant="outline" className="font-body capitalize">
                           {item.published_at ? "Published" : "Draft"}
@@ -213,6 +275,9 @@ export default function MarketInsightsPage() {
                       </div>
                       <p className="font-body text-sm text-muted-foreground line-clamp-2">
                         {item.description || "No description yet."}
+                      </p>
+                      <p className="font-body text-xs text-muted-foreground">
+                        {item.read_time ?? "7 min read"}
                       </p>
                       <p className="inline-flex items-center gap-1 font-body text-xs text-muted-foreground">
                         <CalendarDays className="h-3.5 w-3.5" />
@@ -272,10 +337,13 @@ function mapFormToItem(form: MarketInsightForm, id: string, existing: MarketInsi
   return {
     id,
     title: form.title.trim(),
+    category: form.category.trim() || null,
     description: form.description.trim() || null,
-    file_url: form.file_url.trim(),
+    body: form.body.trim() || null,
+    file_url: form.file_url.trim() || null,
     cover_url: form.cover_url.trim() || null,
     period: form.period.trim() || null,
+    read_time: form.read_time.trim() || null,
     published_at: form.published ? new Date().toISOString() : null,
     created_at: existing?.created_at ?? new Date().toISOString(),
   };

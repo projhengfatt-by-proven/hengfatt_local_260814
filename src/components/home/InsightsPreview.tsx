@@ -67,10 +67,13 @@ export function InsightsPreview() {
                   )}
                 </div>
                 <div className="p-5">
-                  <span className="text-xs font-body font-semibold text-gold uppercase tracking-wider inline-flex items-center gap-1">
-                    <FileText className="h-3.5 w-3.5" />
-                    Market Insight
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-body font-semibold uppercase tracking-wider">
+                    <span className="inline-flex items-center gap-1 text-gold">
+                      <FileText className="h-3.5 w-3.5" />
+                      {article.category ?? "Market Insight"}
+                    </span>
+                    {article.read_time && <span className="text-muted-foreground normal-case tracking-normal">{article.read_time}</span>}
+                  </div>
                   <h3 className="font-heading text-lg font-bold text-foreground mt-2 mb-2 line-clamp-2 group-hover:text-gold transition-colors">
                     {article.title}
                   </h3>

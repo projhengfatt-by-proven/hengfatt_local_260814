@@ -63,11 +63,12 @@ export default function InsightsPage() {
                 <Card className="border-0 shadow-none">
                   <CardContent className="space-y-3 p-5">
                     <div className="flex flex-wrap items-center gap-2 text-xs font-body text-muted-foreground">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-gold/10 px-2.5 py-1 text-gold">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gold/10 px-2.5 py-1 text-gold font-semibold uppercase tracking-wider">
                         <FileText className="h-3.5 w-3.5" />
-                        Insight
+                        {insight.category ?? "Insight"}
                       </span>
                       {insight.period && <span>{insight.period}</span>}
+                      {insight.read_time && <span>{insight.read_time}</span>}
                     </div>
                     <h2 className="font-heading text-xl font-bold text-foreground group-hover:text-gold transition-colors">
                       {insight.title}
@@ -105,4 +106,3 @@ export default function InsightsPage() {
     </div>
   );
 }
-

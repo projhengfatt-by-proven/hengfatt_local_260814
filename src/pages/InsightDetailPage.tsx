@@ -7,6 +7,39 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { buildInsightHref, extractInsightId, fetchMarketInsights, formatInsightDate, type MarketInsight } from "@/lib/marketInsights";
 import { ArrowLeft, CalendarDays, ExternalLink, FileText } from "lucide-react";
 
+function renderInsightBody(body: string | null) {
+  if (!body) return null;
+
+  const blocks = body
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  return blocks.map((block, index) => {
+    const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+    const isBulletList = lines.length > 1 && lines.every((line) => line.startsWith("- "));
+
+    if (isBulletList) {
+      return (
+        <ul key={index} className="space-y-2">
+          {lines.map((line, bulletIndex) => (
+            <li key={bulletIndex} className="flex gap-3 font-body text-base leading-7 text-foreground/80">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
+              <span>{line.replace(/^- /, "")}</span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    return (
+      <p key={index} className="font-body text-base leading-7 text-foreground/80 whitespace-pre-line">
+        {block}
+      </p>
+    );
+  });
+}
+
 export default function InsightDetailPage() {
   const { slug } = useParams();
   const insightId = extractInsightId(slug);
@@ -76,7 +109,16 @@ export default function InsightDetailPage() {
           </div>
 
           <CardContent className="space-y-5 p-6 md:p-8">
-            <Badge className="bg-gold/10 text-gold border-gold/30 font-body">Market Insight</Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="bg-gold/10 text-gold border-gold/30 font-body">
+                {insight.category ?? "Market Insight"}
+              </Badge>
+              {insight.read_time && (
+                <Badge variant="outline" className="font-body">
+                  {insight.read_time}
+                </Badge>
+              )}
+            </div>
             <h1 className="font-heading text-3xl md:text-4xl font-bold text-foreground">
               {insight.title}
             </h1>
@@ -91,13 +133,17 @@ export default function InsightDetailPage() {
               {insight.description || "A market update from the Heng Fatt team."}
             </p>
 
+            {renderInsightBody(insight.body)}
+
             <div className="flex flex-wrap gap-3 pt-2">
-              <Button asChild className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold">
-                <a href={insight.file_url} target="_blank" rel="noreferrer">
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Open report
-                </a>
-              </Button>
+              {insight.file_url && (
+                <Button asChild className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold">
+                  <a href={insight.file_url} target="_blank" rel="noreferrer">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open source
+                  </a>
+                </Button>
+              )}
               <Button variant="outline" asChild>
                 <Link to={buildInsightHref(insight.id, insight.title)}>
                   Share link
@@ -110,4 +156,3 @@ export default function InsightDetailPage() {
     </div>
   );
 }
-
