@@ -72,6 +72,9 @@ export function InsightsPreview() {
                       <FileText className="h-3.5 w-3.5" />
                       {article.category ?? "Market Insight"}
                     </span>
+                    {article.is_featured && (
+                      <span className="rounded-full bg-gold/10 px-2.5 py-1 text-gold">Featured</span>
+                    )}
                     {article.read_time && <span className="text-muted-foreground normal-case tracking-normal">{article.read_time}</span>}
                   </div>
                   <h3 className="font-heading text-lg font-bold text-foreground mt-2 mb-2 line-clamp-2 group-hover:text-gold transition-colors">

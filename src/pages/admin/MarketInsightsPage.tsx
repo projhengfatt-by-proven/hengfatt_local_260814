@@ -6,6 +6,7 @@ import {
   emptyMarketInsightForm,
   fetchMarketInsights,
   formatInsightDate,
+  marketInsightToForm,
   saveMarketInsight,
   type MarketInsight,
   type MarketInsightForm,
@@ -18,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarDays, Edit3, Eye, FileText, Filter, Plus, Save, Search, TrendingUp } from "lucide-react";
+import { CalendarDays, Edit3, Eye, FileText, Plus, Save, Search, TrendingUp, Pin, Sparkles } from "lucide-react";
 
 const SINGAPORE_LUXURY_MARKET_TEMPLATE: MarketInsightForm = {
   title: "Singapore Luxury Property Market 2026: Why the Prime Market Is Regaining Momentum",
@@ -48,12 +49,14 @@ const SINGAPORE_LUXURY_MARKET_TEMPLATE: MarketInsightForm = {
     "There will be photos for that insight which to be created in a card list view and detail view.",
   file_url: "",
   cover_url: "",
+  is_featured: true,
+  display_order: 1,
   period: "14 Aug 2026",
   read_time: "7 min read",
   published: true,
 };
 
-type InsightFilter = "all" | "published" | "draft";
+type InsightFilter = "all" | "published" | "draft" | "featured";
 
 export default function MarketInsightsPage() {
   const navigate = useNavigate();
@@ -107,6 +110,7 @@ export default function MarketInsightsPage() {
     return items.filter((item) => {
       if (filter === "published" && !item.published_at) return false;
       if (filter === "draft" && item.published_at) return false;
+      if (filter === "featured" && !item.is_featured) return false;
 
       if (!search.trim()) return true;
       const haystack = [
@@ -132,7 +136,7 @@ export default function MarketInsightsPage() {
 
   function startCreate(template = false) {
     setEditingId(null);
-    setForm(template ? SINGAPORE_LUXURY_MARKET_TEMPLATE : emptyMarketInsightForm);
+    setForm(template ? { ...SINGAPORE_LUXURY_MARKET_TEMPLATE, is_featured: true, display_order: 1 } : emptyMarketInsightForm);
     setShowForm(true);
     setSearchParams({});
   }
@@ -146,6 +150,8 @@ export default function MarketInsightsPage() {
       body: item.body ?? "",
       file_url: item.file_url ?? "",
       cover_url: item.cover_url ?? "",
+      is_featured: item.is_featured ?? false,
+      display_order: item.display_order ?? 100,
       period: item.period ?? "",
       read_time: item.read_time ?? "7 min read",
       published: !!item.published_at,
@@ -192,17 +198,7 @@ export default function MarketInsightsPage() {
 
   async function togglePublished(item: MarketInsight, published: boolean) {
     setSaving(true);
-    const { error } = await saveMarketInsight(item.id, {
-      title: item.title,
-      category: item.category ?? "MARKET OUTLOOK",
-      description: item.description ?? "",
-      body: item.body ?? "",
-      file_url: item.file_url ?? "",
-      cover_url: item.cover_url ?? "",
-      period: item.period ?? "",
-      read_time: item.read_time ?? "7 min read",
-      published,
-    });
+    const { error } = await saveMarketInsight(item.id, { ...marketInsightToForm(item), published });
     setSaving(false);
     if (error) {
       toast({ title: "Could not update publish state", description: error.message, variant: "destructive" });
@@ -210,6 +206,30 @@ export default function MarketInsightsPage() {
     }
     setItems((prev) => prev.map((row) => (row.id === item.id ? { ...row, published_at: published ? new Date().toISOString() : null } : row)));
     toast({ title: published ? "Insight published" : "Insight moved to draft" });
+  }
+
+  async function toggleFeatured(item: MarketInsight, featured: boolean) {
+    setSaving(true);
+    const { error } = await saveMarketInsight(item.id, { ...marketInsightToForm(item), is_featured: featured });
+    setSaving(false);
+    if (error) {
+      toast({ title: "Could not update featured state", description: error.message, variant: "destructive" });
+      return;
+    }
+    setItems((prev) => prev.map((row) => (row.id === item.id ? { ...row, is_featured: featured } : row)));
+    toast({ title: featured ? "Insight featured" : "Insight unfeatured" });
+  }
+
+  async function updateOrder(item: MarketInsight, displayOrder: number) {
+    setSaving(true);
+    const { error } = await saveMarketInsight(item.id, { ...marketInsightToForm(item), display_order: displayOrder });
+    setSaving(false);
+    if (error) {
+      toast({ title: "Could not update order", description: error.message, variant: "destructive" });
+      return;
+    }
+    setItems((prev) => prev.map((row) => (row.id === item.id ? { ...row, display_order: displayOrder } : row)));
+    toast({ title: "Insight order updated" });
   }
 
   return (
@@ -234,7 +254,7 @@ export default function MarketInsightsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3">
         <StatCard label="Total" value={stats.total} />
         <StatCard label="Published" value={stats.published} />
         <StatCard label="Draft" value={stats.draft} />
@@ -252,7 +272,7 @@ export default function MarketInsightsPage() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            {(["all", "published", "draft"] as InsightFilter[]).map((item) => (
+            {(["all", "published", "draft", "featured"] as InsightFilter[]).map((item) => (
               <button
                 key={item}
                 onClick={() => setFilter(item)}
@@ -354,6 +374,12 @@ export default function MarketInsightsPage() {
                     <Badge variant="secondary" className="font-body">
                       {item.category ?? "MARKET OUTLOOK"}
                     </Badge>
+                    {item.is_featured && (
+                      <Badge className="bg-gold/10 text-gold border-gold/30 font-body">
+                        <Sparkles className="mr-1 h-3.5 w-3.5" />
+                        Featured
+                      </Badge>
+                    )}
                     <Badge variant="outline" className="font-body capitalize">
                       {item.published_at ? "Published" : "Draft"}
                     </Badge>
@@ -386,6 +412,29 @@ export default function MarketInsightsPage() {
                     <FileText className="mr-2 h-4 w-4" />
                     {item.published_at ? "Move to draft" : "Publish"}
                   </Button>
+                  <Button variant="ghost" size="sm" onClick={() => toggleFeatured(item, !item.is_featured)} disabled={saving}>
+                    <Pin className="mr-2 h-4 w-4" />
+                    {item.is_featured ? "Unfeature" : "Feature"}
+                  </Button>
+                  <div className="flex items-center gap-2 rounded-md border border-border/70 px-3 py-1.5">
+                    <span className="font-body text-xs text-muted-foreground">Order</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={item.display_order}
+                      className="h-8 w-20"
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setItems((prev) => prev.map((row) => (row.id === item.id ? { ...row, display_order: next } : row)));
+                      }}
+                      onBlur={(e) => {
+                        const next = Number(e.target.value);
+                        if (!Number.isNaN(next) && next !== item.display_order) {
+                          void updateOrder(item, next);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             ))
@@ -420,6 +469,8 @@ function mapFormToItem(form: MarketInsightForm, id: string, existing: MarketInsi
     body: form.body.trim() || null,
     file_url: form.file_url.trim() || null,
     cover_url: form.cover_url.trim() || null,
+    is_featured: form.is_featured,
+    display_order: form.display_order,
     period: form.period.trim() || null,
     read_time: form.read_time.trim() || null,
     published_at: form.published ? new Date().toISOString() : null,

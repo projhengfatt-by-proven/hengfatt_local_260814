@@ -113,6 +113,11 @@ export default function InsightDetailPage() {
               <Badge className="bg-gold/10 text-gold border-gold/30 font-body">
                 {insight.category ?? "Market Insight"}
               </Badge>
+              {insight.is_featured && (
+                <Badge className="bg-gold/10 text-gold border-gold/30 font-body">
+                  Featured
+                </Badge>
+              )}
               {insight.read_time && (
                 <Badge variant="outline" className="font-body">
                   {insight.read_time}

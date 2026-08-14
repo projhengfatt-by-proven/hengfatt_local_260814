@@ -1,12 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
-import { buildInsightHref, fetchMarketInsights, formatInsightDate, type MarketInsight } from "@/lib/marketInsights";
+import {
+  buildInsightHref,
+  fetchMarketInsights,
+  formatInsightDate,
+  marketInsightToForm,
+  saveMarketInsight,
+  type MarketInsight,
+} from "@/lib/marketInsights";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, CalendarDays, Edit3, ExternalLink, FileText } from "lucide-react";
+import { ArrowLeft, CalendarDays, Edit3, ExternalLink, FileText, Pin, Sparkles } from "lucide-react";
 
 function renderInsightBody(body: string | null) {
   if (!body) return null;
@@ -46,6 +54,7 @@ export default function AdminInsightDetailPage() {
   const navigate = useNavigate();
   const [insight, setInsight] = useState<MarketInsight | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -90,6 +99,23 @@ export default function AdminInsightDetailPage() {
     );
   }
 
+  async function persist(update: Partial<MarketInsight>) {
+    if (!insight) return;
+    setSaving(true);
+    const { error } = await saveMarketInsight(insight.id, {
+      ...marketInsightToForm(insight),
+      ...update,
+      published: !!(update.published_at ?? insight.published_at),
+    });
+    setSaving(false);
+    if (error) {
+      toast({ title: "Could not update insight", description: error.message, variant: "destructive" });
+      return;
+    }
+    setInsight((prev) => (prev ? { ...prev, ...update } : prev));
+    toast({ title: "Insight updated" });
+  }
+
   return (
     <div className="p-6 sm:p-8 max-w-5xl space-y-6">
       <Button variant="ghost" asChild className="px-0 text-gold hover:text-gold-dark">
@@ -116,6 +142,12 @@ export default function AdminInsightDetailPage() {
               <Badge className="bg-gold/10 text-gold border-gold/30 font-body">
                 {insight.category ?? "Market Insight"}
               </Badge>
+              {insight.is_featured && (
+                <Badge className="bg-gold/10 text-gold border-gold/30 font-body">
+                  <Sparkles className="mr-1 h-3.5 w-3.5" />
+                  Featured
+                </Badge>
+              )}
               {insight.read_time && (
                 <Badge variant="outline" className="font-body">
                   {insight.read_time}
@@ -147,6 +179,28 @@ export default function AdminInsightDetailPage() {
                   Edit insight
                 </Link>
               </Button>
+              <Button
+                variant="outline"
+                disabled={saving}
+                onClick={() => void persist({ is_featured: !insight.is_featured })}
+              >
+                <Pin className="mr-2 h-4 w-4" />
+                {insight.is_featured ? "Unfeature" : "Feature"}
+              </Button>
+              <div className="flex items-center gap-2 rounded-md border border-border/70 px-3 py-1.5">
+                <span className="font-body text-xs text-muted-foreground">Order</span>
+                <Input
+                  type="number"
+                  min={0}
+                  value={insight.display_order}
+                  className="h-8 w-20"
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setInsight((prev) => (prev ? { ...prev, display_order: Number.isNaN(next) ? prev.display_order : next } : prev));
+                  }}
+                  onBlur={() => void persist({ display_order: insight.display_order })}
+                />
+              </div>
               <Button variant="outline" asChild>
                 <Link to={buildInsightHref(insight.id, insight.title)} target="_blank" rel="noreferrer">
                   <ExternalLink className="mr-2 h-4 w-4" />

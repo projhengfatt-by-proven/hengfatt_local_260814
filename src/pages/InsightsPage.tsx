@@ -67,6 +67,11 @@ export default function InsightsPage() {
                         <FileText className="h-3.5 w-3.5" />
                         {insight.category ?? "Insight"}
                       </span>
+                      {insight.is_featured && (
+                        <span className="rounded-full bg-gold/10 px-2.5 py-1 text-gold font-semibold uppercase tracking-wider">
+                          Featured
+                        </span>
+                      )}
                       {insight.period && <span>{insight.period}</span>}
                       {insight.read_time && <span>{insight.read_time}</span>}
                     </div>

@@ -1516,6 +1516,8 @@ export type Database = {
           file_url: string | null
           id: string
           category: string | null
+          is_featured: boolean
+          display_order: number
           period: string | null
           read_time: string | null
           published_at: string | null
@@ -1529,6 +1531,8 @@ export type Database = {
           file_url?: string | null
           id?: string
           category?: string | null
+          is_featured?: boolean
+          display_order?: number
           period?: string | null
           read_time?: string | null
           published_at?: string | null
@@ -1542,6 +1546,8 @@ export type Database = {
           file_url?: string | null
           id?: string
           category?: string | null
+          is_featured?: boolean
+          display_order?: number
           period?: string | null
           read_time?: string | null
           published_at?: string | null
