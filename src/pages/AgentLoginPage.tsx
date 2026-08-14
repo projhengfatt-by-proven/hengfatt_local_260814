@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Loader2, CheckCircle, ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -264,6 +264,12 @@ export default function AgentLoginPage() {
                   <button type="button" className="hover:underline cursor-pointer" onClick={() => { setError(""); setView("forgot"); }}>
                     Forgot password?
                   </button>
+                  <Link to="/admin/login" className="font-medium text-gold hover:underline">
+                    Admin Login
+                  </Link>
+                </div>
+
+                <div className="flex justify-end font-body text-[13px]" style={{ color: "#64748B" }}>
                   <button type="button" className="hover:underline cursor-pointer" onClick={() => navigate("/")}>
                     Not an agent? View listings →
                   </button>

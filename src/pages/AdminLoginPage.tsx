@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Loader2, ArrowLeft, CheckCircle } from "lucide-react";
 
+const ADMIN_EMAIL = "provenmarketplace@gmail.com";
+
 function PasswordInput({
   id,
   value,
@@ -52,7 +54,7 @@ function PasswordInput({
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(ADMIN_EMAIL);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -154,7 +156,7 @@ export default function AdminLoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@hengfatt.com"
+                  placeholder={ADMIN_EMAIL}
                   required
                   className="w-full rounded-lg border px-3.5 py-2.5 font-body text-sm outline-none transition-all"
                   style={{ borderColor: "#E2E8F0" }}
@@ -167,6 +169,9 @@ export default function AdminLoginPage() {
                     e.currentTarget.style.boxShadow = "none";
                   }}
                 />
+                <p className="font-body text-[12px]" style={{ color: "#64748B" }}>
+                  Admin account: {ADMIN_EMAIL}
+                </p>
               </div>
 
               <PasswordInput id="admin-password" value={password} onChange={setPassword} />
@@ -232,7 +237,7 @@ export default function AdminLoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@hengfatt.com"
+                  placeholder={ADMIN_EMAIL}
                   required
                   className="w-full rounded-lg border px-3.5 py-2.5 font-body text-sm outline-none transition-all"
                   style={{ borderColor: "#E2E8F0" }}
@@ -245,6 +250,9 @@ export default function AdminLoginPage() {
                     e.currentTarget.style.boxShadow = "none";
                   }}
                 />
+                <p className="font-body text-[12px]" style={{ color: "#64748B" }}>
+                  Make sure this matches the registered admin mailbox exactly.
+                </p>
               </div>
 
               <button
@@ -265,7 +273,7 @@ export default function AdminLoginPage() {
           <div className="flex flex-col items-center py-4">
             <CheckCircle size={40} style={{ color: "#16A34A" }} />
             <p className="mt-4 font-body text-[15px] font-medium" style={{ color: "#16A34A" }}>
-              Reset link sent! Check your inbox.
+              If the email is registered, the reset link has been sent. Check your inbox and spam folder.
             </p>
             <p className="mt-1 font-body text-[13px]" style={{ color: "#64748B" }}>
               The link expires in 1 hour.
