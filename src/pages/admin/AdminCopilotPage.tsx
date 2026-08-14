@@ -1,32 +1,42 @@
-import { Link } from "react-router-dom";
-import { ChevronRight, Sparkles } from "lucide-react";
-import AdminCopilot from "@/components/admin/AdminCopilot";
+import { Sparkles } from "lucide-react";
+import { AdminCommandProvider, useAdminCommand } from "@/components/admin/command/AdminCommandContext";
+import { AdminChatPanel } from "@/components/admin/command/AdminChatPanel";
+import { AdminDynamicScreen } from "@/components/admin/command/AdminDynamicScreen";
+
+function AdminCopilotLayout() {
+  const { state, dispatch } = useAdminCommand();
+
+  return (
+    <div className="flex h-full overflow-hidden">
+      <div
+        className={`${
+          state.isChatOpen ? "w-full lg:w-[380px]" : "w-0"
+        } shrink-0 h-full transition-all duration-300 overflow-hidden`}
+      >
+        <AdminChatPanel className="w-full lg:w-[380px] min-w-[380px]" />
+      </div>
+
+      {!state.isChatOpen && (
+        <button
+          onClick={() => dispatch({ type: "SET_CHAT_OPEN", open: true })}
+          className="hidden lg:flex shrink-0 w-10 h-full border-r border-border/70 bg-muted/20 flex-col items-center justify-center gap-2 hover:bg-muted/40 transition-colors"
+        >
+          <Sparkles className="w-4 h-4 text-gold/80" />
+          <span className="text-muted-foreground text-[10px] font-heading tracking-widest [writing-mode:vertical-rl]">
+            COPILOT
+          </span>
+        </button>
+      )}
+
+      <AdminDynamicScreen />
+    </div>
+  );
+}
 
 export default function AdminCopilotPage() {
   return (
-    <div className="space-y-6">
-      <div className="px-6 sm:px-8 pt-8">
-        <div className="flex items-center gap-2 text-sm font-body text-muted-foreground mb-4">
-          <Link to="/admin" className="hover:text-foreground transition-colors">
-            Admin
-          </Link>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">Copilot</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="rounded-2xl bg-gold/10 p-3 text-gold">
-            <Sparkles className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-foreground">Admin Copilot</h1>
-            <p className="font-body text-muted-foreground">
-              Ask for summaries, explanations, and controlled admin actions with confirmation.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <AdminCopilot />
-    </div>
+    <AdminCommandProvider>
+      <AdminCopilotLayout />
+    </AdminCommandProvider>
   );
 }
