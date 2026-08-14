@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import AddNewAgentForm from "@/components/admin/AddNewAgentForm";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,6 +49,8 @@ export default function AgentsListPage() {
   const [togglingAdmin, setTogglingAdmin] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<AgentFilter>("all");
+  const [searchParams] = useSearchParams();
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   async function fetchAgents() {
     const { data, error } = await supabase
@@ -80,6 +83,12 @@ export default function AgentsListPage() {
   useEffect(() => {
     fetchAgents();
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get("create") === "1") {
+      setShowCreateForm(true);
+    }
+  }, [searchParams]);
 
   const filteredAgents = useMemo(() => {
     return agents.filter((agent) => {
@@ -180,13 +189,33 @@ export default function AgentsListPage() {
           </p>
         </div>
 
-        <Button asChild className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold">
-          <Link to="/admin/agents/new">
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add Agent
-          </Link>
+        <Button
+          onClick={() => setShowCreateForm((current) => !current)}
+          className="bg-gold hover:bg-gold-dark text-primary font-body font-semibold"
+        >
+          <UserPlus className="mr-2 h-4 w-4" />
+          {showCreateForm ? "Hide Create Form" : "Add Agent"}
         </Button>
       </div>
+
+      {showCreateForm && (
+        <div id="create-agent" className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+          <div className="flex flex-col gap-2 border-b border-border/70 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-heading text-xl font-semibold text-foreground">Create a new agent</h2>
+              <p className="mt-1 font-body text-sm text-muted-foreground">
+                Fill in the form below to create the account and send the invite from the same page.
+              </p>
+            </div>
+            <Button variant="ghost" onClick={() => setShowCreateForm(false)}>
+              Close
+            </Button>
+          </div>
+          <div className="pt-6">
+            <AddNewAgentForm />
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Total agents" value={stats.total} />

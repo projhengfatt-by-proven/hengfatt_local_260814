@@ -76,8 +76,8 @@ Pages and activities:
 | Dashboard | Admin landing page. | Overview / landing panel. |
 | Copilot | Admin AI helper. | Read-first assistant with confirmation-gated writes. |
 | Agents | Manage all agents. | Main admin area for people management. |
-| Add New Agent | Fill in agent form and create the account. | Should create the agent and send the invite. |
-| Agent List | View all agents. | Used to decide who appears on the Team page and Home page, edit agent information, and resend invites. |
+| Add Agent Form | Inline create form on the Agents page. | Creates the account and sends the invite from the same screen. |
+| Agent List | View all agents. | Used to decide who appears on the Team page and Home page, edit agent information, resend invites, and open the create form. |
 | Activity Log | Show admin actions and notable events. | Already present as a dedicated page. |
 | Listings | Admin view of all listings. | Used to review and manage public listings. |
 | Listing List | Browse listings as an admin. | Should support filtering by `All`, `Active`, and `Draft`. |
@@ -88,7 +88,7 @@ Pages and activities:
 | Settings | Admin configuration. | Reference page for visibility rules, onboarding rules, and source-of-truth notes. |
 
 Admin remarks:
-- `Dashboard`, `Copilot`, `Agents`, `Add New Agent`, `Agent List`, `Activity Log`, `Listings`, `Market Insights`, `Applications`, `Reports`, and `Settings` are now the main admin sections.
+- `Dashboard`, `Copilot`, `Agents`, `Agent List`, `Activity Log`, `Listings`, `Market Insights`, `Applications`, `Reports`, and `Settings` are now the main admin sections.
 - The agent list is not just informational; it also affects public visibility on the Team page and Home page.
 - The add-agent flow should stay aligned with the invite pipeline so account creation and invitation remain one operation.
 - The Admin Copilot is intentionally read-first: write actions should always require explicit confirmation before they run.

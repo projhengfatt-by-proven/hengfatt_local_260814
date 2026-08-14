@@ -16,7 +16,6 @@ import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminCopilotPage from "./pages/admin/AdminCopilotPage";
-import AddNewAgentPage from "./pages/admin/AddNewAgentPage";
 import AgentsListPage from "./pages/admin/AgentsListPage";
 import EditAgentPage from "./pages/admin/EditAgentPage";
 import ActivityLogPage from "./pages/admin/ActivityLogPage";
@@ -93,7 +92,6 @@ const App = () => (
             <Route index element={<AdminDashboard />} />
             <Route path="copilot" element={<AdminCopilotPage />} />
             <Route path="agents" element={<AgentsListPage />} />
-            <Route path="agents/new" element={<AddNewAgentPage />} />
             <Route path="agents/:id/edit" element={<EditAgentPage />} />
             <Route path="activity" element={<ActivityLogPage />} />
             <Route path="listings" element={<AdminListingsPage />} />

@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 const quickActions = [
-  { label: "Add New Agent", href: "/admin/agents/new", icon: UserPlus },
+  { label: "Manage Agents", href: "/admin/agents", icon: Users },
   { label: "Review Applications", href: "/admin/applications", icon: FileText },
   { label: "Check Listings", href: "/admin/listings", icon: Building2 },
   { label: "Open Copilot", href: "/admin/copilot", icon: Sparkles },

@@ -5,7 +5,6 @@ import { toast } from "@/hooks/use-toast";
 import {
   LayoutDashboard,
   Users,
-  UserPlus,
   Building2,
   FileText,
   BarChart3,
@@ -29,7 +28,6 @@ const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/admin" },
   { label: "Copilot", icon: Sparkles, path: "/admin/copilot" },
   { label: "Agents", icon: Users, path: "/admin/agents" },
-  { label: "Add New Agent", icon: UserPlus, path: "/admin/agents/new", badge: true },
   { label: "Activity Log", icon: ClipboardList, path: "/admin/activity" },
   { label: "Listings", icon: Building2, path: "/admin/listings" },
   { label: "Insights", icon: TrendingUp, path: "/admin/insights" },
@@ -131,11 +129,6 @@ export default function AdminLayout() {
                 <item.icon className={cn("w-5 h-5 shrink-0", active && "text-gold")} />
                 {(!collapsed || isMobile) && (
                   <span className="truncate">{item.label}</span>
-                )}
-                {item.badge && (!collapsed || isMobile) && (
-                  <span className="ml-auto text-[10px] font-bold bg-gold text-primary px-1.5 py-0.5 rounded-full leading-none">
-                    +
-                  </span>
                 )}
               </Link>
             );

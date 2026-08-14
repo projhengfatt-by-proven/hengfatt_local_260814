@@ -247,7 +247,7 @@ export default function AdminCopilot() {
           break;
         case "admin_navigate":
           if (action.input.screen === "dashboard") navigate("/admin");
-          else if (action.input.screen === "add_agent") navigate("/admin/agents/new");
+          else if (action.input.screen === "add_agent") navigate("/admin/agents?create=1");
           else navigate(`/admin/${action.input.screen}`);
           break;
         default:
