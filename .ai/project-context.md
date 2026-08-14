@@ -53,13 +53,14 @@ integration exists.
 `projhengfatt-by-proven/hengfatt_local_260814` (private), pushed via a
 dedicated SSH key/host-alias (`github-hengfatt` in `~/.ssh/config`) so it
 doesn't touch this machine's other cached GitHub credentials. Local commit
-identity is repo-scoped (`git config user.name/email`, not global). Move to
-**Vercel** for hosting is in progress (see `BUILD_GUIDE.md` Progress Log,
-2026-08-14 entries) — Vercel builds this Vite app from that GitHub repo;
-Supabase/Edge Functions are unaffected, only the static frontend moves.
-Originally deployed via Lovable's platform (`hengfattproperty.lovable.app`)
-— whether Lovable keeps pushing into the same GitHub repo or is
-disconnected is still an open decision.
+identity is repo-scoped (`git config user.name/email`, not global). **Live
+on Vercel** as of 2026-08-14: `https://hengfatt-local-260814-bgch.vercel.app/`
+(project `hengfatt_byProven`), auto-deploys on every push to `main`;
+`vercel.json` handles the SPA rewrite this client-side-routed app needs.
+Supabase Auth's `site_url`/`uri_allow_list` and the `SITE_URL` Edge Function
+secret all point at this domain now. **Lovable is discontinued** — decided
+2026-08-14, no longer used for hosting or editing; `hengfattproperty.lovable.app`
+no longer receives auth redirects.
 
 **Major constraints:**
 - `BUILD_GUIDE.md` is the project's single source of truth for what's

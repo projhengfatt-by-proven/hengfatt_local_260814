@@ -606,6 +606,18 @@ Rough build order for what's left — check items off here as we complete them t
 - Not yet done: connecting the GitHub repo to a Vercel project, setting the 3 `VITE_`-prefixed env vars there, adding a `vercel.json` SPA rewrite (this app uses client-side routing — without it, refreshing on a deep route like `/portal/agent` 404s), updating Supabase Auth's allowed redirect URLs and the `SITE_URL` secret for the new domain once it exists, and deciding whether Lovable keeps pushing into this same GitHub repo or gets disconnected.
 - Next: create the Vercel project from this GitHub repo, then work through the remaining steps above.
 
+**2026-08-14 — Live on Vercel; Lovable discontinued**
+
+- Added `vercel.json` (SPA rewrite — all paths → `index.html`, since `react-router-dom` handles routing client-side; without it, refreshing on a deep route like `/portal/agent` 404s on Vercel). Committed and pushed.
+- User connected the GitHub repo to a new Vercel project under the `hengfatt_byProven` team. Walked through Git Scope vs. Vercel Team being two separate things (which GitHub identity owns the repo vs. which Vercel workspace the project lands in) and how to verify the GitHub↔Vercel connection is authorized against the correct account, given the same multi-account laptop as the git setup above — this was on the user to do in-browser; I have no browser-automation tool in this session and the initial OAuth authorization is inherently an interactive, session-bound step I can't perform even with an API token.
+- Deploy succeeded: **`https://hengfatt-local-260814-bgch.vercel.app/`**. Verified directly (not just visually) with `curl`: root returns 200, `/portal/agent` returns 200 with the SPA shell (not a literal 404 page) — confirms the `vercel.json` rewrite is actually working, not just present.
+- Reconnected the Supabase side to the new domain, checking current config before changing it (`GET /config/auth`) rather than guessing field names:
+  - Added the Vercel domain to Auth's `uri_allow_list`, then — once the user confirmed Lovable is fully discontinued — replaced the list entirely (dropped all `*.lovable.app`/`*.lovableproject.com` entries) and set `site_url` to the Vercel domain as primary.
+  - Set the `SITE_URL` Edge Function secret (read by `resend-agent-invite`) to the same domain, replacing its old Lovable fallback.
+- Updated `README.md` to drop the Lovable-authoring instructions entirely (clone/dev steps, deploy instructions, custom domain) and describe the real current setup (GitHub repo, Vercel hosting, live URL) — the old content would otherwise have become exactly the kind of stale, unflagged doc drift found and fixed earlier this session.
+- Not yet done: a real custom domain (currently just the `*.vercel.app` one); the page `<title>` still reads the Lovable-default "Lovable App" rather than the site's actual name — cosmetic, low priority, noted not forgotten.
+- Next: decide on a custom domain when ready (same Supabase `site_url`/`SITE_URL`/allow-list update pattern applies again when that happens); otherwise the deployment/hosting workstream is complete for now.
+
 ---
 
 ## Part C — Agent-invite orchestration via n8n

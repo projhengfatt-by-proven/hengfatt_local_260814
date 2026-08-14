@@ -1,76 +1,52 @@
-# Welcome to your Lovable project
+# HengFatt Property
+
+Originally scaffolded via Lovable.dev; **Lovable is no longer used for this
+project as of 2026-08-14** — hosting moved to Vercel, source of truth is now
+the `projhengfatt-by-proven/hengfatt_local_260814` GitHub repo. The sections
+below reflect that current setup, not the original Lovable-only workflow.
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+- **Live site**: https://hengfatt-local-260814-bgch.vercel.app/
+- **Repo**: `projhengfatt-by-proven/hengfatt_local_260814` (GitHub, private)
+- **Hosting**: Vercel (project `hengfatt_byProven`) — auto-deploys on every push to `main`; other branches/PRs get their own Preview URL
+- **Backend**: Supabase (see `BUILD_GUIDE.md` for the full architecture)
 
 ## How can I edit this code?
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Clone the repo and work locally — the only requirement is Node.js & npm
+installed ([install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)).
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+git clone git@github.com:projhengfatt-by-proven/hengfatt_local_260814.git
+cd hengfatt_local_260814
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Copy `.env`'s 3 `VITE_`-prefixed variables from the Vercel project's
+Environment Variables settings (or ask whoever has them) — `.env` is
+gitignored and never committed.
 
 ## What technologies are used for this project?
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- Vite, TypeScript, React, shadcn-ui, Tailwind CSS
+- Supabase (Postgres, Auth, Storage, Edge Functions)
+- Deployed on Vercel; see `vercel.json` for the SPA rewrite config this
+  client-side-routed app needs
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Push to `main` — Vercel deploys automatically. To deploy manually or check
+build settings, see the project on Vercel's dashboard under the
+`hengfatt_byProven` team.
 
-## Can I connect a custom domain to my Lovable project?
+## Custom domain
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Vercel Dashboard → this project → Settings → Domains → Add. Once a real
+custom domain is added, remember to also update Supabase Auth's `site_url`
+and the `SITE_URL` Edge Function secret to match (see `BUILD_GUIDE.md`'s
+Progress Log, 2026-08-14 entries, for why those need to stay in sync).
 
 ## Known items — to revisit later
 
