@@ -49,9 +49,17 @@ currently calls it — see `BUILD_GUIDE.md` §13b item 2).
 pipelines designed but not built — `BUILD_GUIDE.md` §13b). No payment/billing
 integration exists.
 
-**Deployment:** Not yet a git repository (`.git` doesn't exist in this
-folder as of this writing). Originally deployed via Lovable's platform
-(`hengfattproperty.lovable.app`); no separate CI/CD pipeline observed.
+**Deployment:** Git-tracked as of 2026-08-14 — GitHub repo
+`projhengfatt-by-proven/hengfatt_local_260814` (private), pushed via a
+dedicated SSH key/host-alias (`github-hengfatt` in `~/.ssh/config`) so it
+doesn't touch this machine's other cached GitHub credentials. Local commit
+identity is repo-scoped (`git config user.name/email`, not global). Move to
+**Vercel** for hosting is in progress (see `BUILD_GUIDE.md` Progress Log,
+2026-08-14 entries) — Vercel builds this Vite app from that GitHub repo;
+Supabase/Edge Functions are unaffected, only the static frontend moves.
+Originally deployed via Lovable's platform (`hengfattproperty.lovable.app`)
+— whether Lovable keeps pushing into the same GitHub repo or is
+disconnected is still an open decision.
 
 **Major constraints:**
 - `BUILD_GUIDE.md` is the project's single source of truth for what's

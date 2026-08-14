@@ -60,8 +60,10 @@ and the code if this drifts stale.
 ## Technical Debt
 - Listing form exists as two independent implementations (Command-Center
   scene + standalone page) — see `BUILD_GUIDE.md` §19 "common pitfalls."
-- `git` repo was never initialized for this project folder as of this
-  writing; `.env` is not yet in `.gitignore`.
+- ~~`git` repo was never initialized for this project folder... `.env` is
+  not yet in `.gitignore`~~ — **fixed 2026-08-14**: git initialized,
+  `.env`/`.claude/` added to `.gitignore` before the first commit, pushed
+  to `projhengfatt-by-proven/hengfatt_local_260814` on GitHub.
 
 ## Risks
 - Partial invite failures: if the n8n workflow errors after the GoTrue
