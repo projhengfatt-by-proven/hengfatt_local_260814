@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Loader2, ArrowLeft, CheckCircle } from "lucide-react";
+import { getUserRoles } from "@/lib/userRoles";
 
 const ADMIN_EMAIL = "provenmarketplace@gmail.com";
 
@@ -76,17 +77,13 @@ export default function AdminLoginPage() {
 
     // Step 2: Read role using the session we just got
     const userId = data.session!.user.id;
-    const { data: roleData, error: roleError } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .single();
+    const { roles, error: roleError } = await getUserRoles(userId);
 
     console.log("userId:", userId);
-    console.log("roleData:", roleData);
+    console.log("roles:", roles);
     console.log("roleError:", roleError);
 
-    if (roleData?.role !== "admin") {
+    if (!roles.includes("admin")) {
       await supabase.auth.signOut();
       setError("This area is for admins only.");
       setLoading(false);

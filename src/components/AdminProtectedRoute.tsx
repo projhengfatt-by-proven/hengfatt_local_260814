@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { userHasRole } from "@/lib/userRoles";
 
 export default function AdminProtectedRoute({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true);
@@ -15,13 +16,8 @@ export default function AdminProtectedRoute({ children }: { children: ReactNode 
         return;
       }
 
-      const { data: roleRow } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id)
-        .single();
-
-      setIsAdmin(roleRow?.role === "admin");
+      const { hasRole } = await userHasRole(session.user.id, "admin");
+      setIsAdmin(hasRole);
       setChecking(false);
     }
     check();

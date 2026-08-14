@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import BrandedLeftPanel from "@/components/auth/BrandedLeftPanel";
+import { getUserRoles } from "@/lib/userRoles";
 
 function PasswordInput({
   id,
@@ -137,20 +138,16 @@ export default function ResetPasswordPage() {
 
     // Route back to the login page matching the account's role — an agent
     // resetting via /agent-login must not land on the admin login screen.
-    let role: string | null = null;
+    let roles: string[] = [];
     if (session) {
-      const { data: roleRow } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-      role = roleRow?.role ?? null;
+      const result = await getUserRoles(session.user.id);
+      roles = result.roles;
     }
 
     setLoading(false);
     toast({ title: "Password updated successfully", description: "Please sign in with your new password." });
     await supabase.auth.signOut();
-    navigate(role === "admin" ? "/admin/login" : "/agent-login");
+    navigate(roles.includes("admin") ? "/admin/login" : "/agent-login");
   }
 
   if (linkError) {

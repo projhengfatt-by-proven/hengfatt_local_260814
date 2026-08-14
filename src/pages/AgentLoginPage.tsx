@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Loader2, CheckCircle, ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import BrandedLeftPanel from "@/components/auth/BrandedLeftPanel";
+import { getUserRoles } from "@/lib/userRoles";
 
 /* ------------------------------------------------------------------ */
 /*  Password input with show/hide toggle                              */
@@ -173,13 +174,9 @@ export default function AgentLoginPage() {
     }
 
     // Step 3: Check role
-    const { data: roleRow } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id)
-      .single();
+    const { roles } = await getUserRoles(session.user.id);
 
-    if (roleRow?.role !== "agent" && roleRow?.role !== "admin") {
+    if (!roles.includes("agent") && !roles.includes("admin")) {
       await supabase.auth.signOut();
       setError("This portal is for Heng Fatt agents only.");
       setLoading(false);

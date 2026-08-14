@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { getUserRoles } from "@/lib/userRoles";
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -58,28 +59,24 @@ export default function AuthCallbackPage() {
     }
 
     // Get role with retry (DB trigger may still be running)
-    let role: string | null = null;
+    let roles: string[] = [];
     for (let attempt = 0; attempt < 3; attempt++) {
-      const { data: roleRow } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id)
-        .single();
-      if (roleRow?.role) {
-        role = roleRow.role;
+      const result = await getUserRoles(session.user.id);
+      roles = result.roles;
+      if (roles.length) {
         break;
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
     // If agent/admin and password_set_at is null → first login, must set password
-    if ((role === "agent" || role === "admin") && !profile.password_set_at) {
+    if ((roles.includes("agent") || roles.includes("admin")) && !profile.password_set_at) {
       setCurrentSession(session);
       setShowSetPassword(true);
       return;
     }
 
-    if (role === "agent" || role === "admin") {
+    if (roles.includes("agent") || roles.includes("admin")) {
       navigate("/portal/agent");
     } else {
       navigate("/portal/member");
@@ -126,15 +123,11 @@ export default function AuthCallbackPage() {
       .eq("id", freshSession.user.id);
 
     // Inline role lookup and redirect to avoid stale session in routeByRole
-    let role: string | null = null;
+    let roles: string[] = [];
     for (let attempt = 0; attempt < 3; attempt++) {
-      const { data: roleRow } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", freshSession.user.id)
-        .single();
-      if (roleRow?.role) {
-        role = roleRow.role;
+      const result = await getUserRoles(freshSession.user.id);
+      roles = result.roles;
+      if (roles.length) {
         break;
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -142,7 +135,7 @@ export default function AuthCallbackPage() {
 
     setLoading(false);
 
-    if (role === "agent" || role === "admin") {
+    if (roles.includes("agent") || roles.includes("admin")) {
       navigate("/portal/agent");
     } else {
       navigate("/portal/member");

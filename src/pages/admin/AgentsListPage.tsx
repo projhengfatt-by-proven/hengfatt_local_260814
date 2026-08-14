@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Pencil, Send, Loader2, Search, UserPlus } from "lucide-react";
-import { resendAgentInvite, setAgentActive, setAgentVisibility } from "@/components/admin/adminOperations";
+import { resendAgentInvite, setAgentActive, setAgentVisibility, setAgentAdminRole } from "@/components/admin/adminOperations";
 
 type AgentRow = {
   id: string;
@@ -36,6 +36,7 @@ type AgentRow = {
     is_active: boolean | null;
     password_set_at: string | null;
   } | null;
+  is_admin: boolean;
 };
 
 type AgentFilter = "all" | "published" | "featured" | "pending-invite" | "internal" | "external";
@@ -44,6 +45,7 @@ export default function AgentsListPage() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [resending, setResending] = useState<string | null>(null);
+  const [togglingAdmin, setTogglingAdmin] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<AgentFilter>("all");
 
@@ -56,14 +58,21 @@ export default function AgentsListPage() {
     if (error) {
       toast({ title: "Error loading agents", description: error.message, variant: "destructive" });
     } else {
-      setAgents(
-        (data ?? []).map((row) => ({
-          ...row,
-          is_published: row.is_published ?? false,
-          is_featured: row.is_featured ?? false,
-          profiles: row.profiles,
-        })) as AgentRow[]
-      );
+      const agentRows = (data ?? []).map((row) => ({
+        ...row,
+        is_published: row.is_published ?? false,
+        is_featured: row.is_featured ?? false,
+        is_admin: false,
+        profiles: row.profiles,
+      })) as AgentRow[];
+
+      const agentIds = agentRows.map((row) => row.id);
+      const { data: roles } = agentIds.length
+        ? await supabase.from("user_roles").select("user_id, role").in("user_id", agentIds)
+        : { data: [] as Array<{ user_id: string; role: string }> };
+      const adminIds = new Set((roles ?? []).filter((row) => row.role === "admin").map((row) => row.user_id));
+
+      setAgents(agentRows.map((row) => ({ ...row, is_admin: adminIds.has(row.id) })));
     }
     setLoading(false);
   }
@@ -102,6 +111,7 @@ export default function AgentsListPage() {
     total: agents.length,
     published: agents.filter((agent) => agent.is_published).length,
     featured: agents.filter((agent) => agent.is_featured).length,
+    admins: agents.filter((agent) => agent.is_admin).length,
     pendingInvite: agents.filter((agent) => !agent.profiles?.password_set_at).length,
   }), [agents]);
 
@@ -137,6 +147,18 @@ export default function AgentsListPage() {
     toast({ title: "Invite resent", description: `Email sent to ${agent.profiles.email}` });
   }
 
+  async function handleAdminRole(agent: AgentRow, value: boolean) {
+    setTogglingAdmin(agent.id);
+    const result = await setAgentAdminRole(agent.id, value);
+    setTogglingAdmin(null);
+    if (result.error) {
+      toast({ title: "Could not update admin role", description: result.error, variant: "destructive" });
+      return;
+    }
+    setAgents((prev) => prev.map((item) => (item.id === agent.id ? { ...item, is_admin: value } : item)));
+    toast({ title: value ? "Admin role granted" : "Admin role removed" });
+  }
+
   const initials = (name: string | null) =>
     (name ?? "??")
       .split(" ")
@@ -166,10 +188,11 @@ export default function AgentsListPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Total agents" value={stats.total} />
         <StatCard label="Published" value={stats.published} />
         <StatCard label="Featured" value={stats.featured} />
+        <StatCard label="Admins" value={stats.admins} />
         <StatCard label="Pending invite" value={stats.pendingInvite} />
       </div>
 
@@ -210,6 +233,7 @@ export default function AgentsListPage() {
               <TableHead className="font-body hidden lg:table-cell">CEA No.</TableHead>
               <TableHead className="font-body text-center">Team Page</TableHead>
               <TableHead className="font-body text-center">Homepage</TableHead>
+              <TableHead className="font-body text-center">Admin</TableHead>
               <TableHead className="font-body text-center">Account</TableHead>
               <TableHead className="font-body text-center">Edit</TableHead>
               <TableHead className="font-body text-center">Invite</TableHead>
@@ -219,7 +243,7 @@ export default function AgentsListPage() {
             {loading &&
               Array.from({ length: 4 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={9}>
+                  <TableCell colSpan={10}>
                     <Skeleton className="h-10 w-full" />
                   </TableCell>
                 </TableRow>
@@ -227,7 +251,7 @@ export default function AgentsListPage() {
 
             {!loading && filteredAgents.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="py-12 text-center font-body text-muted-foreground">
+                <TableCell colSpan={10} className="py-12 text-center font-body text-muted-foreground">
                   No agents match the current filters.
                 </TableCell>
               </TableRow>
@@ -275,6 +299,13 @@ export default function AgentsListPage() {
                     checked={agent.is_featured}
                     onCheckedChange={(val) => void handleVisibility(agent, "is_featured", val)}
                     disabled={agent.agent_type !== "internal"}
+                  />
+                </TableCell>
+                <TableCell className="text-center">
+                  <Switch
+                    checked={agent.is_admin}
+                    onCheckedChange={(val) => void handleAdminRole(agent, val)}
+                    disabled={togglingAdmin === agent.id}
                   />
                 </TableCell>
                 <TableCell className="text-center">

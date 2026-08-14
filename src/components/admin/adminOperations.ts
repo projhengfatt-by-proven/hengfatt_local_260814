@@ -185,3 +185,28 @@ export async function reviewApplication(
 
   return { error: error?.message ?? null };
 }
+
+export async function setAgentAdminRole(agentId: string, enabled: boolean) {
+  const { data, error } = await supabase.functions.invoke("admin-set-user-role", {
+    body: { agent_id: agentId, enabled },
+  });
+
+  if (error) return { error: error.message };
+  if (data?.error) return { error: data.error as string };
+
+  const { data: agentInfo } = await supabase
+    .from("agent_profiles")
+    .select("profiles(full_name, email)")
+    .eq("id", agentId)
+    .maybeSingle();
+
+  await logAdminActivity(
+    enabled ? "Admin role granted" : "Admin role revoked",
+    "agent",
+    agentId,
+    agentInfo?.profiles?.full_name ?? agentInfo?.profiles?.email ?? null,
+    { is_admin: enabled } as Json
+  );
+
+  return { error: null, data };
+}
