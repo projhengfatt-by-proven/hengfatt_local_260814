@@ -108,15 +108,6 @@ export default function MarketInsightsPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const editId = searchParams.get("edit");
-    if (!editId || loading) return;
-    const insight = items.find((item) => item.id === editId);
-    if (insight) {
-      startEdit(insight);
-    }
-  }, [items, loading, searchParams, startEdit]);
-
   const stats = useMemo(
     () => ({
       total: items.length,
@@ -185,6 +176,15 @@ export default function MarketInsightsPage() {
     setCopilotNotes("");
     setSearchParams({ edit: item.id });
   }, [setSearchParams]);
+
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (!editId || loading) return;
+    const insight = items.find((item) => item.id === editId);
+    if (insight) {
+      startEdit(insight);
+    }
+  }, [items, loading, searchParams, startEdit]);
 
   async function generateCopilotDraft() {
     const prompt = copilotPrompt.trim();
