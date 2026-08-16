@@ -17,10 +17,13 @@ import {
   ClipboardList,
   Sparkles,
   TrendingUp,
+  MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { AdminCommandProvider, useAdminCommand } from "@/components/admin/command/AdminCommandContext";
+import { AdminChatPanel } from "@/components/admin/command/AdminChatPanel";
 
 const STORAGE_KEY = "admin-sidebar-collapsed";
 
@@ -198,10 +201,55 @@ export default function AdminLayout() {
         </>
       )}
 
-      {/* Main content */}
+      {/* Main content: persistent Copilot chat (collapsible) + dynamic canvas (whatever route is active) */}
+      <AdminCommandProvider>
+        <AdminMainArea />
+      </AdminCommandProvider>
+    </div>
+  );
+}
+
+function AdminMainArea() {
+  const { state, dispatch } = useAdminCommand();
+
+  return (
+    <div className="flex-1 flex overflow-hidden relative">
+      <div
+        className={cn(
+          "shrink-0 relative z-30 h-full transition-all duration-300 overflow-hidden",
+          state.isChatOpen ? "w-full lg:w-[380px] absolute lg:relative" : "w-0"
+        )}
+      >
+        <AdminChatPanel className="w-full lg:w-[380px] min-w-[380px]" />
+      </div>
+
+      {/* Collapsed chat toggle — visible when chat is closed on desktop */}
+      {!state.isChatOpen && (
+        <button
+          onClick={() => dispatch({ type: "SET_CHAT_OPEN", open: true })}
+          className="hidden lg:flex shrink-0 w-10 h-full border-r border-border/70 bg-muted/20 flex-col items-center justify-center gap-2 hover:bg-muted/40 transition-colors"
+        >
+          <Sparkles className="w-4 h-4 text-gold/80" />
+          <span className="text-muted-foreground text-[10px] font-heading tracking-widest [writing-mode:vertical-rl]">
+            COPILOT
+          </span>
+        </button>
+      )}
+
+      {/* Dynamic canvas — whatever admin route is active */}
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>
+
+      {/* Mobile chat toggle — chat overlays the canvas on small screens */}
+      {!state.isChatOpen && (
+        <button
+          onClick={() => dispatch({ type: "SET_CHAT_OPEN", open: true })}
+          className="lg:hidden fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-gold shadow-gold flex items-center justify-center"
+        >
+          <MessageCircle className="w-5 h-5 text-navy" />
+        </button>
+      )}
     </div>
   );
 }

@@ -25,7 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useAdminCommand, sectionForScreen, type AdminMessage, type AdminPendingAction } from "./AdminCommandContext";
+import { useAdminCommand, pathForScreen, type AdminMessage, type AdminPendingAction } from "./AdminCommandContext";
 import {
   Bot,
   CheckCircle2,
@@ -161,7 +161,7 @@ async function executeQueryTool(call: ToolCall): Promise<string> {
 
 export function AdminChatPanel({ className }: { className?: string }) {
   const navigate = useNavigate();
-  const { state, dispatch, navigateTo } = useAdminCommand();
+  const { state, dispatch } = useAdminCommand();
   const [input, setInput] = useState("");
   const [loadingOverview, setLoadingOverview] = useState(true);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
@@ -199,6 +199,16 @@ export function AdminChatPanel({ className }: { className?: string }) {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, pendingActions]);
+
+  // A page rendered inside the canvas (e.g. the Copilot quick-start view)
+  // can pre-fill this persistent chat's input via shared context, since
+  // the chat panel now lives at the layout level, outside any one page.
+  useEffect(() => {
+    if (state.draftInput !== null) {
+      setInput(state.draftInput);
+      dispatch({ type: "SET_DRAFT_INPUT", value: null });
+    }
+  }, [state.draftInput, dispatch]);
 
   const contextSummary = useMemo(() => {
     if (!overview) return null;
@@ -245,8 +255,8 @@ export function AdminChatPanel({ className }: { className?: string }) {
       dispatch({ type: "SET_THINKING", value: false });
 
       if (interpretation.status === "navigate") {
-        const section = sectionForScreen(interpretation.screen);
-        if (section) navigateTo(section);
+        const path = pathForScreen(interpretation.screen);
+        if (path) navigate(path);
         dispatch({
           type: "ADD_MESSAGE",
           message: { id: crypto.randomUUID(), role: "assistant", content: `Opened ${interpretation.screen}.` },
@@ -320,15 +330,12 @@ export function AdminChatPanel({ className }: { className?: string }) {
 
             navActions.forEach((action) => {
               const screen = String(action.input.screen ?? "");
-              const section = sectionForScreen(screen);
-              if (section) {
-                navigateTo(section);
+              const path = pathForScreen(screen);
+              if (path) {
+                navigate(path);
               } else if (screen === "add_agent") {
                 navigate("/admin/agents?create=1");
               }
-              // screen === "copilot" is intentionally a no-op: the chat only
-              // runs inside the Copilot page itself, so "open the copilot"
-              // is already satisfied.
             });
 
             queryActions.forEach((action) => {

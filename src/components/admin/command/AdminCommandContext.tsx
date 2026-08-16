@@ -1,16 +1,6 @@
-import { createContext, useContext, useReducer, useCallback, ReactNode } from "react";
+import { createContext, useContext, useReducer, ReactNode } from "react";
 import type { ToolCall } from "@/lib/ariaClient";
 import type { AdminOverview } from "@/components/admin/adminOverview";
-
-export type AdminSection =
-  | "dashboard"
-  | "agents"
-  | "activity"
-  | "listings"
-  | "insights"
-  | "applications"
-  | "reports"
-  | "settings";
 
 export type AdminMessage = {
   id: string;
@@ -24,16 +14,16 @@ export type AdminPendingAction = ToolCall & {
 };
 
 interface AdminCommandState {
-  currentSection: AdminSection;
   messages: AdminMessage[];
   pendingActions: AdminPendingAction[];
   overview: AdminOverview | null;
   isThinking: boolean;
   isChatOpen: boolean;
+  /** Set by a page (e.g. the Copilot quick-start view) to pre-fill the persistent chat panel's input; consumed and cleared by AdminChatPanel. */
+  draftInput: string | null;
 }
 
 type Action =
-  | { type: "NAVIGATE"; section: AdminSection }
   | { type: "ADD_MESSAGE"; message: AdminMessage }
   | { type: "UPSERT_ASSISTANT"; id: string; content: string }
   | { type: "SET_THINKING"; value: boolean }
@@ -41,21 +31,20 @@ type Action =
   | { type: "SET_PENDING_ACTIONS"; actions: AdminPendingAction[] }
   | { type: "DISMISS_PENDING_ACTION"; id: string }
   | { type: "TOGGLE_CHAT" }
-  | { type: "SET_CHAT_OPEN"; open: boolean };
+  | { type: "SET_CHAT_OPEN"; open: boolean }
+  | { type: "SET_DRAFT_INPUT"; value: string | null };
 
 const initialState: AdminCommandState = {
-  currentSection: "dashboard",
   messages: [],
   pendingActions: [],
   overview: null,
   isThinking: false,
   isChatOpen: true,
+  draftInput: null,
 };
 
 function reducer(state: AdminCommandState, action: Action): AdminCommandState {
   switch (action.type) {
-    case "NAVIGATE":
-      return { ...state, currentSection: action.section };
     case "ADD_MESSAGE":
       return { ...state, messages: [...state.messages, action.message] };
     case "UPSERT_ASSISTANT": {
@@ -85,6 +74,8 @@ function reducer(state: AdminCommandState, action: Action): AdminCommandState {
       return { ...state, isChatOpen: !state.isChatOpen };
     case "SET_CHAT_OPEN":
       return { ...state, isChatOpen: action.open };
+    case "SET_DRAFT_INPUT":
+      return { ...state, draftInput: action.value };
     default:
       return state;
   }
@@ -93,7 +84,6 @@ function reducer(state: AdminCommandState, action: Action): AdminCommandState {
 interface AdminCommandContextValue {
   state: AdminCommandState;
   dispatch: React.Dispatch<Action>;
-  navigateTo: (section: AdminSection) => void;
 }
 
 const AdminCommandCtx = createContext<AdminCommandContextValue | null>(null);
@@ -101,15 +91,7 @@ const AdminCommandCtx = createContext<AdminCommandContextValue | null>(null);
 export function AdminCommandProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const navigateTo = useCallback((section: AdminSection) => {
-    dispatch({ type: "NAVIGATE", section });
-  }, []);
-
-  return (
-    <AdminCommandCtx.Provider value={{ state, dispatch, navigateTo }}>
-      {children}
-    </AdminCommandCtx.Provider>
-  );
+  return <AdminCommandCtx.Provider value={{ state, dispatch }}>{children}</AdminCommandCtx.Provider>;
 }
 
 export function useAdminCommand() {
@@ -118,17 +100,19 @@ export function useAdminCommand() {
   return ctx;
 }
 
-const SCREEN_TO_SECTION: Partial<Record<string, AdminSection>> = {
-  dashboard: "dashboard",
-  agents: "agents",
-  activity: "activity",
-  listings: "listings",
-  insights: "insights",
-  applications: "applications",
-  reports: "reports",
-  settings: "settings",
+/** Maps a Copilot "screen" name (from admin_navigate / the deterministic navigate intent) to a real admin route. */
+const SCREEN_TO_PATH: Partial<Record<string, string>> = {
+  dashboard: "/admin",
+  agents: "/admin/agents",
+  activity: "/admin/activity",
+  listings: "/admin/listings",
+  insights: "/admin/insights",
+  applications: "/admin/applications",
+  reports: "/admin/reports",
+  settings: "/admin/settings",
+  copilot: "/admin/copilot",
 };
 
-export function sectionForScreen(screen: string): AdminSection | null {
-  return SCREEN_TO_SECTION[screen] ?? null;
+export function pathForScreen(screen: string): string | null {
+  return SCREEN_TO_PATH[screen] ?? null;
 }
