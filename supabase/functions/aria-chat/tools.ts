@@ -220,13 +220,13 @@ export const ADMIN_TOOLS = [
   {
     name: "admin_navigate",
     description:
-      "Navigate within the admin portal to the requested section. Use for simple admin navigation requests such as opening Dashboard, Agents, Listings, Applications, Reports, Settings, or the Copilot screen.",
+      "Navigate within the admin portal to the requested section. Use for simple admin navigation requests such as opening Dashboard, Agents, Listings, Insights, Applications, Reports, Settings, or the Copilot screen.",
     input_schema: {
       type: "object",
       properties: {
         screen: {
           type: "string",
-          enum: ["dashboard", "agents", "add_agent", "activity", "listings", "applications", "reports", "settings", "copilot"],
+          enum: ["dashboard", "agents", "add_agent", "activity", "listings", "insights", "applications", "reports", "settings", "copilot"],
         },
       },
       required: ["screen"],
@@ -312,6 +312,138 @@ export const ADMIN_TOOLS = [
         admin_notes: { type: "string", description: "Optional admin note to store with the review" },
       },
       required: ["application_id", "status"],
+    },
+  },
+  {
+    name: "admin_set_agent_role",
+    description:
+      "Propose granting or revoking the admin role for an agent. This is a privileged, high-impact action — use only when the admin explicitly asks to promote or demote someone.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string", description: "UUID of the agent/profile record" },
+        enabled: { type: "boolean", description: "true to grant admin role, false to revoke it" },
+      },
+      required: ["agent_id", "enabled"],
+    },
+  },
+  {
+    name: "admin_update_agent_profile",
+    description:
+      "Propose updating one or more of an agent's profile fields (name, phone, position, agent type, years of experience, specialisations, languages, WhatsApp number, display email, LinkedIn URL, bios, display order). Only include the fields the admin actually wants changed — do not include fields that weren't mentioned.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string", description: "UUID of the agent/profile record" },
+        full_name: { type: "string" },
+        phone: { type: "string" },
+        cea_no: { type: "string", description: "Format: R followed by 6 digits and 1 letter, e.g. R012345A" },
+        position: { type: "string" },
+        agent_type: { type: "string", enum: ["internal", "external"] },
+        years_experience: { type: "number" },
+        specialisations: { type: "array", items: { type: "string" } },
+        languages: { type: "array", items: { type: "string" } },
+        whatsapp_no: { type: "string" },
+        email_display: { type: "string" },
+        linkedin_url: { type: "string" },
+        bio_en: { type: "string" },
+        bio_zh: { type: "string" },
+        display_order: { type: "number" },
+      },
+      required: ["agent_id"],
+    },
+  },
+  {
+    name: "admin_set_insight_published",
+    description:
+      "Propose publishing or unpublishing a market insight report.",
+    input_schema: {
+      type: "object",
+      properties: {
+        insight_id: { type: "string", description: "UUID of the market insight/report" },
+        published: { type: "boolean" },
+      },
+      required: ["insight_id", "published"],
+    },
+  },
+  {
+    name: "admin_set_insight_featured",
+    description:
+      "Propose featuring or unfeaturing a market insight report.",
+    input_schema: {
+      type: "object",
+      properties: {
+        insight_id: { type: "string", description: "UUID of the market insight/report" },
+        featured: { type: "boolean" },
+      },
+      required: ["insight_id", "featured"],
+    },
+  },
+  {
+    name: "admin_reorder_insight",
+    description:
+      "Propose changing the display order of a market insight report.",
+    input_schema: {
+      type: "object",
+      properties: {
+        insight_id: { type: "string", description: "UUID of the market insight/report" },
+        display_order: { type: "number" },
+      },
+      required: ["insight_id", "display_order"],
+    },
+  },
+  {
+    name: "admin_query_agents",
+    description:
+      "Look up agents with structured filters (active/inactive, published/unpublished on the Team page, featured/unfeatured on the homepage, internal/external, or a name search). This is a read — results are shown directly, no confirmation needed. Use this instead of guessing from memory whenever the admin asks to see/find/list agents matching some condition.",
+    input_schema: {
+      type: "object",
+      properties: {
+        isActive: { type: "boolean", description: "Filter by account active status" },
+        isPublished: { type: "boolean", description: "Filter by visibility on the public Team page" },
+        isFeatured: { type: "boolean", description: "Filter by homepage featured status" },
+        agentType: { type: "string", enum: ["internal", "external"] },
+        nameContains: { type: "string", description: "Partial name match" },
+      },
+    },
+  },
+  {
+    name: "admin_query_listings",
+    description:
+      "Look up listings with structured filters (status, sale/rental, price range, bedroom count, featured, title search). This is a read — results are shown directly, no confirmation needed. Use this instead of guessing from memory whenever the admin asks to see/find/list listings matching some condition. There is no 'expiry' field — this system does not track listing expiry dates; do not invent one.",
+    input_schema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["active", "draft"] },
+        transactionType: { type: "string", enum: ["sale", "rental"] },
+        priceMin: { type: "number" },
+        priceMax: { type: "number" },
+        bedrooms: { type: "number" },
+        isFeatured: { type: "boolean" },
+        titleContains: { type: "string", description: "Partial title/property name match" },
+      },
+    },
+  },
+  {
+    name: "admin_query_applications",
+    description:
+      "Look up agent applications with structured filters (status, date range). This is a read — results are shown directly, no confirmation needed.",
+    input_schema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["pending", "reviewing", "interview", "approved", "declined"] },
+        dateFrom: { type: "string", description: "ISO date, inclusive lower bound on created_at" },
+        dateTo: { type: "string", description: "ISO date, inclusive upper bound on created_at" },
+      },
+    },
+  },
+  {
+    name: "admin_workflow_publish_approved_listings",
+    description:
+      "Propose the multi-step workflow that finds every approved-but-unpublished listing, checks each one against the readiness bar (has photos, price, description length, required fields), and publishes the ones that pass — skipping the rest with a reason. Use this only for a broad 'publish all approved/ready listings' request, not for a single named listing (use admin_set_listing_status for that instead). This workflow has no search-index-update step — this project has no search indexing infrastructure.",
+    input_schema: {
+      type: "object",
+      properties: {},
     },
   },
 ];

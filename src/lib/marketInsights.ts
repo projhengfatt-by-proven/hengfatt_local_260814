@@ -1,4 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
+import { logAdminActivity } from "@/components/admin/adminOperations";
+import { requireAdmin } from "@/components/admin/adminGuards";
+import type { Json } from "@/integrations/supabase/types";
 
 export type MarketInsight = {
   id: string;
@@ -102,6 +105,9 @@ export async function fetchMarketInsights({ publishedOnly = false }: { published
 }
 
 export async function saveMarketInsight(id: string | null, form: MarketInsightForm) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return { data: null, error: new Error(authError) };
+
   const payload = {
     title: form.title.trim(),
     category: form.category.trim() || null,
@@ -116,9 +122,47 @@ export async function saveMarketInsight(id: string | null, form: MarketInsightFo
     published_at: form.published ? new Date().toISOString() : null,
   };
 
-  if (id) {
-    return supabase.from("market_reports").update(payload).eq("id", id).select("id, title, category, description, body, file_url, cover_url, is_featured, display_order, period, read_time, published_at, created_at").single();
+  const columns =
+    "id, title, category, description, body, file_url, cover_url, is_featured, display_order, period, read_time, published_at, created_at";
+
+  const result = id
+    ? await supabase.from("market_reports").update(payload).eq("id", id).select(columns).single()
+    : await supabase.from("market_reports").insert(payload).select(columns).single();
+
+  if (!result.error) {
+    await logAdminActivity(
+      id ? "Market insight updated" : "Market insight created",
+      "market_insight",
+      result.data.id,
+      payload.title,
+      payload as Json
+    );
   }
 
-  return supabase.from("market_reports").insert(payload).select("id, title, category, description, body, file_url, cover_url, is_featured, display_order, period, read_time, published_at, created_at").single();
+  return result;
+}
+
+async function updateInsightField(id: string, patch: Partial<MarketInsightForm>) {
+  const { data: current, error: fetchError } = await supabase
+    .from("market_reports")
+    .select("id, title, category, description, body, file_url, cover_url, is_featured, display_order, period, read_time, published_at, created_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError) return { data: null, error: fetchError };
+  if (!current) return { data: null, error: new Error("Market insight not found.") };
+
+  return saveMarketInsight(id, { ...marketInsightToForm(current as MarketInsight), ...patch });
+}
+
+export async function setInsightPublished(id: string, published: boolean) {
+  return updateInsightField(id, { published });
+}
+
+export async function setInsightFeatured(id: string, featured: boolean) {
+  return updateInsightField(id, { is_featured: featured });
+}
+
+export async function reorderInsight(id: string, displayOrder: number) {
+  return updateInsightField(id, { display_order: displayOrder });
 }

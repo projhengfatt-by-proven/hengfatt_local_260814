@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { updateAgentProfile } from "@/components/admin/adminOperations";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,24 +17,6 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 const SPECIALISATION_OPTIONS = ["HDB", "Condo", "Landed", "Commercial", "New Launch", "Investment"];
 const LANGUAGE_OPTIONS = ["English", "Mandarin", "Malay", "Tamil", "Cantonese", "Hokkien", "Japanese"];
 const CEA_REGEX = /^R\d{6}[A-Z]$/;
-
-async function logActivity(
-  action: string,
-  targetId: string,
-  targetName: string | null,
-  changes: Record<string, unknown> | null
-) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-  await supabase.from("admin_activity_log").insert({
-    admin_id: user.id,
-    action,
-    target_type: "agent",
-    target_id: targetId,
-    target_name: targetName,
-    changes: changes as any,
-  });
-}
 
 export default function EditAgentPage() {
   const { id } = useParams<{ id: string }>();
@@ -124,48 +107,36 @@ export default function EditAgentPage() {
 
     setSaving(true);
 
-    // Update profiles table
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ full_name: fullName.trim(), avatar_url: avatarUrl.trim() || null, phone: phone.trim() || null })
-      .eq("id", id);
+    const { error } = await updateAgentProfile(
+      id,
+      {
+        full_name: fullName.trim(),
+        avatar_url: avatarUrl.trim() || null,
+        phone: phone.trim() || null,
+      },
+      {
+        cea_no: ceaNo.trim() || "PENDING",
+        position: position.trim() || null,
+        agent_type: agentType,
+        years_experience: yearsExp === "" ? 0 : Number(yearsExp),
+        specialisations,
+        languages,
+        whatsapp_no: whatsappNo.trim() || null,
+        email_display: emailDisplay.trim() || null,
+        linkedin_url: linkedinUrl.trim() || null,
+        bio_en: bioEn.trim() || null,
+        bio_zh: bioZh.trim() || null,
+        is_published: isPublished,
+        is_featured: agentType === "internal" ? isFeatured : false,
+        display_order: displayOrder === "" ? 99 : Number(displayOrder),
+      }
+    );
 
-    if (profileError) {
-      toast({ title: "Error updating profile", description: profileError.message, variant: "destructive" });
+    if (error) {
+      toast({ title: "Error updating agent", description: error, variant: "destructive" });
       setSaving(false);
       return;
     }
-
-    // Update agent_profiles table
-    const agentUpdate = {
-      cea_no: ceaNo.trim() || "PENDING",
-      position: position.trim() || null,
-      agent_type: agentType,
-      years_experience: yearsExp === "" ? 0 : Number(yearsExp),
-      specialisations,
-      languages,
-      whatsapp_no: whatsappNo.trim() || null,
-      email_display: emailDisplay.trim() || null,
-      linkedin_url: linkedinUrl.trim() || null,
-      bio_en: bioEn.trim() || null,
-      bio_zh: bioZh.trim() || null,
-      is_published: isPublished,
-      is_featured: agentType === "internal" ? isFeatured : false,
-      display_order: displayOrder === "" ? 99 : Number(displayOrder),
-    };
-
-    const { error: agentError } = await supabase
-      .from("agent_profiles")
-      .update(agentUpdate)
-      .eq("id", id);
-
-    if (agentError) {
-      toast({ title: "Error updating agent", description: agentError.message, variant: "destructive" });
-      setSaving(false);
-      return;
-    }
-
-    await logActivity("Agent profile updated", id, fullName, agentUpdate);
 
     toast({ title: "Agent updated successfully" });
     setSaving(false);

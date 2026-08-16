@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { createAgent } from "@/components/admin/adminOperations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -110,34 +110,27 @@ export default function AddNewAgentForm() {
 
     setLoading(true);
 
-    const { data, error } = await supabase.functions.invoke("send-agent-invite", {
-      body: {
-        full_name: fullName.trim(),
-        email: email.trim().toLowerCase(),
-        phone: phone.trim(),
-        preferred_lang: preferredLang,
-        cea_no: ceaNo.trim() || null,
-        years_experience: yearsExp === "" ? null : Number(yearsExp),
-        agent_type: agentType,
-        position: position.trim() || null,
-        specialisations,
-        languages,
-        linkedin_url: linkedinUrl.trim() || null,
-        display_order: displayOrder === "" ? 99 : Number(displayOrder),
-        bio_en: bioEn.trim() || null,
-        bio_zh: bioZh.trim() || null,
-      },
+    const { error } = await createAgent({
+      full_name: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
+      preferred_lang: preferredLang,
+      cea_no: ceaNo.trim() || null,
+      years_experience: yearsExp === "" ? null : Number(yearsExp),
+      agent_type: agentType,
+      position: position.trim() || null,
+      specialisations,
+      languages,
+      linkedin_url: linkedinUrl.trim() || null,
+      display_order: displayOrder === "" ? 99 : Number(displayOrder),
+      bio_en: bioEn.trim() || null,
+      bio_zh: bioZh.trim() || null,
     });
 
     setLoading(false);
 
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      return;
-    }
-
-    if (data?.error) {
-      toast({ title: "Error", description: data.error, variant: "destructive" });
+      toast({ title: "Error", description: error, variant: "destructive" });
       return;
     }
 

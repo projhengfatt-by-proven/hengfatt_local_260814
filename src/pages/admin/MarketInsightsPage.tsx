@@ -7,8 +7,10 @@ import {
   emptyMarketInsightForm,
   fetchMarketInsights,
   formatInsightDate,
-  marketInsightToForm,
+  reorderInsight,
   saveMarketInsight,
+  setInsightFeatured,
+  setInsightPublished,
   type MarketInsight,
   type MarketInsightForm,
 } from "@/lib/marketInsights";
@@ -295,7 +297,7 @@ export default function MarketInsightsPage() {
 
   async function togglePublished(item: MarketInsight, published: boolean) {
     setSaving(true);
-    const { error } = await saveMarketInsight(item.id, { ...marketInsightToForm(item), published });
+    const { error } = await setInsightPublished(item.id, published);
     setSaving(false);
     if (error) {
       toast({ title: "Could not update publish state", description: error.message, variant: "destructive" });
@@ -307,7 +309,7 @@ export default function MarketInsightsPage() {
 
   async function toggleFeatured(item: MarketInsight, featured: boolean) {
     setSaving(true);
-    const { error } = await saveMarketInsight(item.id, { ...marketInsightToForm(item), is_featured: featured });
+    const { error } = await setInsightFeatured(item.id, featured);
     setSaving(false);
     if (error) {
       toast({ title: "Could not update featured state", description: error.message, variant: "destructive" });
@@ -319,7 +321,7 @@ export default function MarketInsightsPage() {
 
   async function updateOrder(item: MarketInsight, displayOrder: number) {
     setSaving(true);
-    const { error } = await saveMarketInsight(item.id, { ...marketInsightToForm(item), display_order: displayOrder });
+    const { error } = await reorderInsight(item.id, displayOrder);
     setSaving(false);
     if (error) {
       toast({ title: "Could not update order", description: error.message, variant: "destructive" });

@@ -98,6 +98,45 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Mirrors the admin check above — previously missing (see
+    // docs/security/COPILOT_SECURITY_AUDIT.md). Without this, any caller —
+    // authenticated as any role, or not authenticated at all — could
+    // retrieve the full ARIA_TOOLS list and a streamed completion,
+    // consuming the project's Anthropic API budget with no authorization
+    // check at all. "Agent" is not a user_roles row in this schema (see
+    // docs/admin/ROLE_INVENTORY.md) — it's inferred from having an
+    // agent_profiles row, so this checks for either that or an admin role.
+    if (assistantRole === "agent") {
+      if (!userId) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: agentRow } = await supabase
+        .from("agent_profiles")
+        .select("id")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!agentRow) {
+        const { data: adminRoleRow } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("role", "admin")
+          .maybeSingle();
+
+        if (!adminRoleRow) {
+          return new Response(JSON.stringify({ error: "Forbidden — agent or admin only" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+    }
+
     let memoryContext = "";
     if (assistantRole === "agent" && userId) {
       const { data: memory } = await supabase

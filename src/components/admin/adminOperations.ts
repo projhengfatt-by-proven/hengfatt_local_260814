@@ -1,9 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
+import { requireAdmin } from "@/components/admin/adminGuards";
 
 type AdminLogChanges = Json | null;
 
-async function logAdminActivity(
+export async function logAdminActivity(
   action: string,
   targetType: string,
   targetId: string,
@@ -27,6 +28,9 @@ export async function setAgentVisibility(
   agentId: string,
   updates: { is_published?: boolean; is_featured?: boolean }
 ) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return { error: authError };
+
   const { data: agentInfo } = await supabase
     .from("agent_profiles")
     .select("profiles(full_name, email)")
@@ -64,6 +68,9 @@ export async function setAgentVisibility(
 }
 
 export async function setAgentActive(agentId: string, isActive: boolean) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return { error: authError };
+
   const { data: agentInfo } = await supabase
     .from("profiles")
     .select("full_name, email")
@@ -88,7 +95,47 @@ export async function setAgentActive(agentId: string, isActive: boolean) {
   return { error: error?.message ?? null };
 }
 
+export type NewAgentInput = {
+  full_name: string;
+  email: string;
+  phone: string;
+  preferred_lang: "en" | "zh";
+  cea_no: string | null;
+  years_experience: number | null;
+  agent_type: "internal" | "external";
+  position: string | null;
+  specialisations: string[];
+  languages: string[];
+  linkedin_url: string | null;
+  display_order: number;
+  bio_en: string | null;
+  bio_zh: string | null;
+};
+
+export async function createAgent(input: NewAgentInput) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return { error: authError };
+
+  const { data, error } = await supabase.functions.invoke("send-agent-invite", { body: input });
+
+  if (error) return { error: error.message };
+  if (data?.error) return { error: data.error as string };
+
+  await logAdminActivity(
+    "Agent invited",
+    "agent",
+    data?.agent_id ?? input.email,
+    input.full_name,
+    input as unknown as Json
+  );
+
+  return { error: null, data };
+}
+
 export async function resendAgentInvite(email: string) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return { error: authError };
+
   const { data, error } = await supabase.functions.invoke("resend-agent-invite", {
     body: { email },
   });
@@ -108,6 +155,9 @@ export async function resendAgentInvite(email: string) {
 }
 
 export async function setListingStatus(listingId: string, status: "active" | "draft") {
+  const { error: authError } = await requireAdmin();
+  if (authError) return { error: authError };
+
   const { data: listingInfo } = await supabase
     .from("properties")
     .select("title, title_zh, property_name, slug")
@@ -130,6 +180,9 @@ export async function setListingStatus(listingId: string, status: "active" | "dr
 }
 
 export async function setListingFeatured(listingId: string, value: boolean) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return { error: authError };
+
   const { data: listingInfo } = await supabase
     .from("properties")
     .select("title, title_zh, property_name, slug")
@@ -156,7 +209,9 @@ export async function reviewApplication(
   status: "pending" | "reviewing" | "interview" | "approved" | "declined",
   adminNotes?: string
 ) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { userId, error: authError } = await requireAdmin();
+  if (authError) return { error: authError };
+
   const { data: applicationInfo } = await supabase
     .from("agent_applications")
     .select("full_name, email")
@@ -169,7 +224,7 @@ export async function reviewApplication(
       status,
       admin_notes: adminNotes || null,
       reviewed_at: new Date().toISOString(),
-      reviewed_by: user?.id ?? null,
+      reviewed_by: userId,
     })
     .eq("id", applicationId);
 
@@ -187,6 +242,13 @@ export async function reviewApplication(
 }
 
 export async function setAgentAdminRole(agentId: string, enabled: boolean) {
+  const { userId, error: authError } = await requireAdmin();
+  if (authError) return { error: authError };
+
+  if (!enabled && agentId === userId) {
+    return { error: "You cannot revoke your own admin role." };
+  }
+
   const { data, error } = await supabase.functions.invoke("admin-set-user-role", {
     body: { agent_id: agentId, enabled },
   });
@@ -209,4 +271,72 @@ export async function setAgentAdminRole(agentId: string, enabled: boolean) {
   );
 
   return { error: null, data };
+}
+
+export type ProfileFieldsUpdate = {
+  full_name: string;
+  avatar_url: string | null;
+  phone: string | null;
+};
+
+export type AgentFieldsUpdate = {
+  cea_no: string;
+  position: string | null;
+  agent_type: "internal" | "external";
+  years_experience: number;
+  specialisations: string[];
+  languages: string[];
+  whatsapp_no: string | null;
+  email_display: string | null;
+  linkedin_url: string | null;
+  bio_en: string | null;
+  bio_zh: string | null;
+  is_published: boolean;
+  is_featured: boolean;
+  display_order: number;
+};
+
+const CEA_REGEX = /^R\d{6}[A-Z]$/;
+
+export async function updateAgentProfile(
+  agentId: string,
+  profileUpdate: Partial<ProfileFieldsUpdate>,
+  agentUpdate: Partial<AgentFieldsUpdate>
+) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return { error: authError };
+
+  if (agentUpdate.cea_no !== undefined && agentUpdate.cea_no && !CEA_REGEX.test(agentUpdate.cea_no)) {
+    return { error: "Invalid CEA No. Format: R followed by 6 digits and 1 letter (e.g. R012345A)." };
+  }
+
+  if (Object.keys(profileUpdate).length > 0) {
+    const { error: profileError } = await supabase.from("profiles").update(profileUpdate).eq("id", agentId);
+    if (profileError) return { error: profileError.message };
+  }
+
+  if (Object.keys(agentUpdate).length > 0) {
+    const { error: agentError } = await supabase.from("agent_profiles").update(agentUpdate).eq("id", agentId);
+    if (agentError) return { error: agentError.message };
+  }
+
+  let targetName = profileUpdate.full_name ?? null;
+  if (!targetName) {
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", agentId)
+      .maybeSingle();
+    targetName = existing?.full_name ?? existing?.email ?? null;
+  }
+
+  await logAdminActivity(
+    "Agent profile updated",
+    "agent",
+    agentId,
+    targetName,
+    { ...profileUpdate, ...agentUpdate } as Json
+  );
+
+  return { error: null };
 }

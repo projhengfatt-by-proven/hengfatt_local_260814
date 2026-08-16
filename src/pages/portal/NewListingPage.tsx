@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { districtOptions, propertyTypes, formatSGD, calcPSF } from "@/lib/listingHelpers";
+import { createListing } from "@/lib/listingOperations";
 import {
   ArrowLeft, Check, ChevronRight, Camera, X, Eye, Star, Upload,
   Plus, Minus, Loader2,
@@ -195,114 +196,23 @@ export default function NewListingPage() {
     if (!isDraft && getRequired().length > 0) { setShowErrors(true); return; }
     setSaving(true);
 
-    const { data: property, error } = await supabase
-      .from("properties")
-      .insert({
-        agent_id: primaryOwnerId,
-        title: formData.title || formData.property_name || "Untitled",
-        property_name: formData.property_name || null,
-        unit_number: formData.unit_number || null,
-        address: formData.address || null,
-        postal_code: formData.postal_code || null,
-        district: formData.district ? parseInt(formData.district) : null,
-        type: (formData.property_type || "Condo") as any,
-        transaction_type: (formData.transaction_type || "sale") as any,
-        price: formData.price_on_enquiry ? null : (parseFloat(formData.price) || null),
-        monthly_rental: formData.price_on_enquiry ? null : (parseFloat(formData.monthly_rental) || null),
-        price_on_enquiry: formData.price_on_enquiry,
-        size_sqft: parseFloat(formData.size_sqft) || null,
-        bedrooms: formData.bedrooms || null,
-        bathrooms: formData.bathrooms || null,
-        car_parks: formData.car_parks || 0,
-        floor_level: formData.floor_level || null,
-        tenure: formData.tenure ? (formData.tenure as any) : null,
-        top_year: formData.top_year ? parseInt(formData.top_year) : null,
-        facing: formData.facing || null,
-        furnishing: formData.furnishing || null,
-        mrt_nearest: formData.mrt_nearest || null,
-        mrt_distance_m: formData.mrt_distance_m ? parseInt(formData.mrt_distance_m) : null,
-        description_en: formData.description_en || null,
-        description_zh: formData.description_zh || null,
-        virtual_tour_url: formData.virtual_tour_url || null,
-        cobroke_enabled: formData.cobroke_enabled,
-        cobroke_commission: formData.cobroke_commission ? parseFloat(formData.cobroke_commission) : null,
-        status: isDraft ? "draft" : "active",
-        approval_status: "approved",
-        is_featured: false,
-        view_count: 0,
-      } as any)
-      .select()
-      .single();
+    const { data: property, error } = await createListing({
+      ownerId: primaryOwnerId,
+      createdByUserId: session.user.id,
+      isDraft,
+      fields: formData,
+      photos,
+      floorPlans,
+      linkFolderName: prefillFolder,
+    });
+
+    setSaving(false);
 
     if (error || !property) {
       toast({ title: "Failed to save", description: error?.message, variant: "destructive" });
-      setSaving(false);
       return;
     }
 
-    // Upload photos
-    for (let i = 0; i < photos.length; i++) {
-      const p = photos[i];
-      let url = p.url;
-      if (p.file) {
-        const ext = p.file.name.split(".").pop();
-        const path = `${property.id}/${Date.now()}-${i}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("property-images").upload(path, p.file);
-        if (!upErr) {
-          const { data: pub } = supabase.storage.from("property-images").getPublicUrl(path);
-          url = pub.publicUrl;
-        }
-      }
-      if (url) {
-        await supabase.from("property_images").insert({
-          property_id: property.id,
-          url,
-          is_cover: i === 0,
-          display_order: i,
-        });
-      }
-    }
-
-    // Floor plans
-    for (let i = 0; i < floorPlans.length; i++) {
-      const fp = floorPlans[i];
-      let url = fp.url;
-      if (fp.file) {
-        const path = `${property.id}/floor-${Date.now()}-${i}.${fp.file.name.split(".").pop()}`;
-        const { error: upErr } = await supabase.storage.from("floor-plans").upload(path, fp.file);
-        if (!upErr) {
-          const { data: pub } = supabase.storage.from("floor-plans").getPublicUrl(path);
-          url = pub.publicUrl;
-        }
-      }
-      if (url) {
-        await supabase.from("property_floor_plans").insert({
-          property_id: property.id,
-          url,
-          label: fp.label || `Plan ${i + 1}`,
-          display_order: i,
-        });
-      }
-    }
-
-    // Private notes
-    if (formData.owner_bottom_price || formData.private_notes || formData.reason_for_selling) {
-      await supabase.from("property_private_notes").insert({
-        property_id: property.id,
-        agent_id: session.user.id,
-        owner_bottom_price: formData.owner_bottom_price ? parseFloat(formData.owner_bottom_price) : null,
-        reason_for_selling: formData.reason_for_selling || null,
-        owner_urgency: formData.owner_urgency || null,
-        private_notes: formData.private_notes || null,
-      });
-    }
-
-    // Link My Files folder
-    if (prefillFolder) {
-      await supabase.from("agent_files").update({ property_id: property.id }).eq("agent_id", session.user.id).eq("folder_name", prefillFolder);
-    }
-
-    setSaving(false);
     toast({ title: isDraft ? "Draft saved" : "🎉 Listing is now live!" });
     navigate(isAdminMode ? "/admin/listings" : "/portal/agent/listings");
   };

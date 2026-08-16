@@ -42,6 +42,9 @@ const testData = vi.hoisted(() => {
     getSession: vi.fn().mockResolvedValue({ data: { session: { access_token: "insight-token" } } }),
     fetchMarketInsights: vi.fn().mockResolvedValue({ data: [insight], error: null }),
     saveMarketInsight: vi.fn().mockResolvedValue({ data: insight, error: null }),
+    setInsightPublished: vi.fn().mockResolvedValue({ data: insight, error: null }),
+    setInsightFeatured: vi.fn().mockResolvedValue({ data: insight, error: null }),
+    reorderInsight: vi.fn().mockResolvedValue({ data: insight, error: null }),
     toast: vi.fn(),
     generateMarketInsightDraft: vi.fn().mockResolvedValue({
       data: draft,
@@ -77,6 +80,9 @@ vi.mock("@/lib/marketInsights", async () => {
     ...actual,
     fetchMarketInsights: testData.fetchMarketInsights,
     saveMarketInsight: testData.saveMarketInsight,
+    setInsightPublished: testData.setInsightPublished,
+    setInsightFeatured: testData.setInsightFeatured,
+    reorderInsight: testData.reorderInsight,
   };
 });
 
@@ -120,9 +126,9 @@ describe("MarketInsightsPage", () => {
     expect(sessionStorage.getItem("aria_prefill")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /^publish$/i }));
-    await waitFor(() => expect(testData.saveMarketInsight).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(testData.setInsightPublished).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByRole("button", { name: /^feature$/i }));
-    await waitFor(() => expect(testData.saveMarketInsight).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(testData.setInsightFeatured).toHaveBeenCalledTimes(1));
   });
 });
